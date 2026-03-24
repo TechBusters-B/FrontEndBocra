@@ -6,10 +6,9 @@
 <title>BOCRA — Complaint & Licensing Portal</title>
 <link rel="preconnect" href="https://fonts.googleapis.com"/>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,500;0,9..144,700;1,9..144,400&family=Instrument+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet"/>
-<script src="https://unpkg.com/react@18.2.0/umd/react.production.min.js"></script>
-<script src="https://unpkg.com/react-dom@18.2.0/umd/react-dom.production.min.js"></script>
+<script src="https://unpkg.com/react@18.2.0/umd/react.development.js" crossorigin></script>
+<script src="https://unpkg.com/react-dom@18.2.0/umd/react-dom.development.js" crossorigin></script>
 <script src="https://unpkg.com/@babel/standalone@7.23.2/babel.min.js"></script>
-<script src="https://unpkg.com/recharts@2.8.0/umd/Recharts.js"></script>
 <style>
 /* ── RESET & BASE ── */
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
@@ -61,7 +60,8 @@ html,body,#root{height:100%;min-height:100%}
   --text:#e8e4f4;--text2:#8888aa;--text3:#5555778;
   --ok-bg:#0a2018;--warn-bg:#1e1200;--err-bg:#1e0808;--info-bg:#080e22;
 }
-body{font-family:'Instrument Sans',sans-serif;background:var(--bg);color:var(--text);font-size:14px;line-height:1.55;transition:background .3s,color .3s}
+body{font-family:'Instrument Sans','Segoe UI','Helvetica Neue',Arial,sans-serif;background:var(--bg);color:var(--text);font-size:14px;line-height:1.55;transition:background .3s,color .3s}
+#root:empty::before{content:'Loading CivicOS…';display:block;padding:60px;text-align:center;font-size:16px;color:#888;font-family:sans-serif}
 
 /* ── SCROLLBAR ── */
 ::-webkit-scrollbar{width:5px;height:5px}
@@ -364,9 +364,208 @@ select{cursor:pointer;background-image:url("data:image/svg+xml,%3Csvg xmlns='htt
 </head>
 <body>
 <div id="root"></div>
-<script type="text/babel" data-presets="react">
+<script type="text/babel">
 
 const { useState, useEffect, useContext, createContext, useCallback, useMemo, useRef } = React;
+
+/* ═══════════════════════════════════════════════
+   ERROR BOUNDARY — shows message instead of blank page
+═══════════════════════════════════════════════ */
+class ErrBoundary extends React.Component {
+  constructor(p){super(p);this.state={err:null};}
+  static getDerivedStateFromError(e){return{err:e};}
+  render(){
+    if(this.state.err) return (
+      <div style={{padding:40,fontFamily:'sans-serif',maxWidth:600,margin:'0 auto'}}>
+        <h2 style={{color:'#c43030',marginBottom:12}}>⚠ Something went wrong</h2>
+        <p style={{color:'#555',marginBottom:8}}>Error: <code style={{background:'#f5f5f5',padding:'2px 6px',borderRadius:4}}>{this.state.err.message}</code></p>
+        <button onClick={()=>this.setState({err:null})} style={{padding:'8px 16px',background:'#111',color:'#fff',border:'none',borderRadius:8,cursor:'pointer',marginTop:12}}>Try again</button>
+      </div>
+    );
+    return this.props.children;
+  }
+}
+
+/* ═══════════════════════════════════════════════
+   PURE SVG CHART COMPONENTS — zero external deps
+═══════════════════════════════════════════════ */
+
+// ── SVG Bar Chart (vertical grouped) ──
+function SvgBarChart({ data, keys, colors, height=200, showLegend=true }) {
+  const [tooltip, setTooltip] = useState(null);
+  const W=500, H=height, PL=30, PR=10, PT=10, PB=30;
+  const cW=W-PL-PR, cH=H-PT-PB;
+  const maxVal = Math.max(...data.flatMap(d=>keys.map(k=>d[k]||0)),1);
+  const barW = Math.min(28, (cW/data.length/keys.length)-4);
+  const groupW = cW/data.length;
+  const yTicks = [0,Math.round(maxVal/2),maxVal];
+  return (
+    <div style={{position:'relative',width:'100%'}}>
+      <svg viewBox={`0 0 ${W} ${H}`} style={{width:'100%',height:'auto',display:'block'}} onMouseLeave={()=>setTooltip(null)}>
+        {/* Y grid */}
+        {yTicks.map((t,i)=>{
+          const y=PT+cH-cH*(t/maxVal);
+          return <g key={i}><line x1={PL} x2={W-PR} y1={y} y2={y} stroke="var(--border)" strokeDasharray="3 3"/><text x={PL-4} y={y+4} textAnchor="end" fontSize={10} fill="var(--text2)">{t}</text></g>;
+        })}
+        {/* Bars */}
+        {data.map((d,di)=>{
+          const gx=PL+di*groupW+groupW/2-(keys.length*barW+(keys.length-1)*3)/2;
+          return keys.map((k,ki)=>{
+            const val=d[k]||0;
+            const bh=cH*(val/maxVal);
+            const x=gx+ki*(barW+3);
+            const y=PT+cH-bh;
+            return (
+              <g key={`${di}-${ki}`} style={{cursor:'pointer'}}
+                onMouseEnter={e=>setTooltip({x:e.clientX,y:e.clientY,label:d.month||d.name,key:k,val})}
+                onMouseMove={e=>setTooltip(t=>({...t,x:e.clientX,y:e.clientY}))}
+                onMouseLeave={()=>setTooltip(null)}>
+                <rect x={x} y={y} width={barW} height={Math.max(bh,1)} fill={colors[ki]} rx={3} opacity={0.9}/>
+              </g>
+            );
+          });
+        })}
+        {/* X axis labels */}
+        {data.map((d,i)=><text key={i} x={PL+i*groupW+groupW/2} y={H-4} textAnchor="middle" fontSize={10} fill="var(--text2)">{d.month||d.name}</text>)}
+      </svg>
+      {tooltip&&<div style={{position:'fixed',left:tooltip.x+12,top:tooltip.y-8,background:'var(--surface)',border:'1px solid var(--border)',borderRadius:8,padding:'6px 10px',fontSize:12,pointerEvents:'none',zIndex:9999,boxShadow:'var(--sh2)',whiteSpace:'nowrap'}}><div style={{fontWeight:700,marginBottom:2}}>{tooltip.label}</div><div style={{color:'var(--text2)'}}>{tooltip.key}: <b>{tooltip.val}</b></div></div>}
+      {showLegend&&<div style={{display:'flex',gap:12,flexWrap:'wrap',marginTop:8,justifyContent:'center'}}>{keys.map((k,i)=><div key={k} style={{display:'flex',alignItems:'center',gap:5,fontSize:12,color:'var(--text2)'}}><div style={{width:10,height:10,borderRadius:'50%',background:colors[i]}}></div>{k}</div>)}</div>}
+    </div>
+  );
+}
+
+// ── SVG Donut/Pie Chart ──
+function SvgPieChart({ data, colors, height=200, donut=true }) {
+  const [tooltip, setTooltip] = useState(null);
+  const [active, setActive] = useState(null);
+  const total = data.reduce((s,d)=>s+(d.value||0),0)||1;
+  const R=75, r=donut?45:0, cx=100, cy=100;
+  let angle=-Math.PI/2;
+  const slices = data.map((d,i)=>{
+    const pct=(d.value||0)/total;
+    const startA=angle; angle+=pct*2*Math.PI;
+    const endA=angle;
+    const midA=(startA+endA)/2;
+    const x1=cx+R*Math.cos(startA), y1=cy+R*Math.sin(startA);
+    const x2=cx+R*Math.cos(endA), y2=cy+R*Math.sin(endA);
+    const ix1=cx+r*Math.cos(endA), iy1=cy+r*Math.sin(endA);
+    const ix2=cx+r*Math.cos(startA), iy2=cy+r*Math.sin(startA);
+    const large=pct>0.5?1:0;
+    const path=donut
+      ?`M${x1},${y1} A${R},${R} 0 ${large},1 ${x2},${y2} L${ix1},${iy1} A${r},${r} 0 ${large},0 ${ix2},${iy2} Z`
+      :`M${cx},${cy} L${x1},${y1} A${R},${R} 0 ${large},1 ${x2},${y2} Z`;
+    return {path,color:colors[i%colors.length],name:d.name,value:d.value||0,pct,midA,i};
+  });
+  return (
+    <div style={{display:'flex',alignItems:'center',gap:16,flexWrap:'wrap'}}>
+      <svg viewBox="0 0 200 200" style={{width:Math.min(180,height)+'px',height:Math.min(180,height)+'px',flexShrink:0}} onMouseLeave={()=>{setTooltip(null);setActive(null);}}>
+        {slices.map(s=>(
+          <path key={s.i} d={s.path} fill={s.color} stroke="var(--surface)" strokeWidth={2}
+            style={{cursor:'pointer',transition:'opacity .15s',opacity:active===null||active===s.i?1:.5,transform:active===s.i?`translate(${Math.cos(s.midA)*4}px,${Math.sin(s.midA)*4}px)`:'none'}}
+            onMouseEnter={e=>{setActive(s.i);setTooltip({x:e.clientX,y:e.clientY,name:s.name,val:s.value,pct:Math.round(s.pct*100)});}}
+            onMouseMove={e=>setTooltip(t=>({...t,x:e.clientX,y:e.clientY}))}
+            onMouseLeave={()=>{setActive(null);setTooltip(null);}}/>
+        ))}
+        {donut&&<text x={cx} y={cy} textAnchor="middle" dominantBaseline="central" fontSize={18} fontWeight={700} fill="var(--text)">{total}</text>}
+      </svg>
+      <div style={{flex:1,minWidth:120}}>
+        {slices.map(s=>(
+          <div key={s.i} style={{display:'flex',alignItems:'center',gap:7,marginBottom:5,fontSize:12,cursor:'default',opacity:active===null||active===s.i?1:.5,transition:'opacity .15s'}} onMouseEnter={()=>setActive(s.i)} onMouseLeave={()=>setActive(null)}>
+            <div style={{width:10,height:10,borderRadius:'50%',background:s.color,flexShrink:0}}></div>
+            <span style={{flex:1,color:'var(--text2)',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{s.name}</span>
+            <span style={{fontWeight:700,color:'var(--text)'}}>{s.value}</span>
+          </div>
+        ))}
+      </div>
+      {tooltip&&<div style={{position:'fixed',left:tooltip.x+12,top:tooltip.y-8,background:'var(--surface)',border:'1px solid var(--border)',borderRadius:8,padding:'6px 10px',fontSize:12,pointerEvents:'none',zIndex:9999,boxShadow:'var(--sh2)',whiteSpace:'nowrap'}}><b>{tooltip.name}</b><br/><span style={{color:'var(--text2)'}}>Count: {tooltip.val} ({tooltip.pct}%)</span></div>}
+    </div>
+  );
+}
+
+// ── SVG Line/Area Chart ──
+function SvgLineChart({ data, keys, colors, height=200, area=false, unit='' }) {
+  const [tooltip, setTooltip] = useState(null);
+  const W=500, H=height, PL=32, PR=10, PT=10, PB=26;
+  const cW=W-PL-PR, cH=H-PT-PB;
+  const allVals=data.flatMap(d=>keys.map(k=>d[k]||0));
+  const maxVal=Math.max(...allVals,1);
+  const xs=data.map((_,i)=>PL+i*(cW/(data.length-1||1)));
+  const ys=(k)=>data.map(d=>PT+cH-cH*((d[k]||0)/maxVal));
+  const yTicks=[0,Math.round(maxVal/2),maxVal];
+  return (
+    <div style={{position:'relative',width:'100%'}} onMouseLeave={()=>setTooltip(null)}>
+      <svg viewBox={`0 0 ${W} ${H}`} style={{width:'100%',height:'auto',display:'block'}}>
+        {/* Grid */}
+        {yTicks.map((t,i)=>{const y=PT+cH-cH*(t/maxVal);return<g key={i}><line x1={PL} x2={W-PR} y1={y} y2={y} stroke="var(--border)" strokeDasharray="3 3"/><text x={PL-4} y={y+4} textAnchor="end" fontSize={10} fill="var(--text2)">{t}{unit}</text></g>;})}
+        {/* Area fills */}
+        {area&&keys.map((k,ki)=>{
+          const yArr=ys(k);
+          const pts=xs.map((x,i)=>`${x},${yArr[i]}`).join(' ');
+          const fill=`${xs[0]},${PT+cH} ${pts} ${xs[xs.length-1]},${PT+cH}`;
+          return<polygon key={k} points={fill} fill={colors[ki]} opacity={0.15}/>;
+        })}
+        {/* Lines */}
+        {keys.map((k,ki)=>{
+          const yArr=ys(k);
+          const pts=xs.map((x,i)=>`${x},${yArr[i]}`).join(' L');
+          return<polyline key={k} points={pts.replace(/ L/g,' ')} fill="none" stroke={colors[ki]} strokeWidth={2.5} strokeLinejoin="round" strokeLinecap="round"/>;
+        })}
+        {/* Dots + hover */}
+        {data.map((d,di)=>(
+          <g key={di} style={{cursor:'pointer'}}
+            onMouseEnter={e=>setTooltip({x:e.clientX,y:e.clientY,d,di})}
+            onMouseMove={e=>setTooltip(t=>({...t,x:e.clientX,y:e.clientY}))}>
+            <rect x={xs[di]-8} y={PT} width={16} height={cH} fill="transparent"/>
+            {keys.map((k,ki)=><circle key={k} cx={xs[di]} cy={ys(k)[di]} r={4} fill={colors[ki]} stroke="var(--surface)" strokeWidth={2}/>)}
+          </g>
+        ))}
+        {/* X labels */}
+        {data.map((d,i)=><text key={i} x={xs[i]} y={H-4} textAnchor="middle" fontSize={10} fill="var(--text2)">{d.month||d.name||i}</text>)}
+        {/* Tooltip line */}
+        {tooltip&&<line x1={xs[tooltip.di]} x2={xs[tooltip.di]} y1={PT} y2={PT+cH} stroke="var(--border2)" strokeDasharray="4 2"/>}
+      </svg>
+      {tooltip&&<div style={{position:'fixed',left:tooltip.x+12,top:tooltip.y-8,background:'var(--surface)',border:'1px solid var(--border)',borderRadius:8,padding:'6px 10px',fontSize:12,pointerEvents:'none',zIndex:9999,boxShadow:'var(--sh2)',whiteSpace:'nowrap'}}>
+        <div style={{fontWeight:700,marginBottom:4}}>{tooltip.d.month||tooltip.d.name}</div>
+        {keys.map((k,ki)=><div key={k} style={{color:'var(--text2)',display:'flex',gap:6,alignItems:'center'}}><div style={{width:8,height:8,borderRadius:'50%',background:colors[ki]}}></div>{k}: <b>{tooltip.d[k]}{unit}</b></div>)}
+      </div>}
+      <div style={{display:'flex',gap:12,flexWrap:'wrap',marginTop:8,justifyContent:'center'}}>
+        {keys.map((k,i)=><div key={k} style={{display:'flex',alignItems:'center',gap:5,fontSize:12,color:'var(--text2)'}}><div style={{width:10,height:10,borderRadius:'50%',background:colors[i]}}></div>{k}</div>)}
+      </div>
+    </div>
+  );
+}
+
+// ── SVG Horizontal Bar Chart ──
+function SvgHBarChart({ data, dataKey, nameKey, colors, height=180 }) {
+  const [tooltip, setTooltip] = useState(null);
+  const maxVal=Math.max(...data.map(d=>d[dataKey]||0),1);
+  const barH=22, gap=8, PL=65, PR=30, PT=10;
+  const totalH=PT+data.length*(barH+gap);
+  return (
+    <div style={{position:'relative'}} onMouseLeave={()=>setTooltip(null)}>
+      <svg viewBox={`0 0 400 ${totalH}`} style={{width:'100%',height:'auto',display:'block'}}>
+        {data.map((d,i)=>{
+          const val=d[dataKey]||0;
+          const w=(val/maxVal)*(400-PL-PR);
+          const y=PT+i*(barH+gap);
+          const color=Array.isArray(colors)?colors[i%colors.length]:colors;
+          return(
+            <g key={i} style={{cursor:'pointer'}}
+              onMouseEnter={e=>setTooltip({x:e.clientX,y:e.clientY,name:d[nameKey],val})}
+              onMouseMove={e=>setTooltip(t=>({...t,x:e.clientX,y:e.clientY}))}
+              onMouseLeave={()=>setTooltip(null)}>
+              <text x={PL-6} y={y+barH/2+1} textAnchor="end" fontSize={11} fill="var(--text2)" dominantBaseline="middle">{d[nameKey]}</text>
+              <rect x={PL} y={y} width={400-PL-PR} height={barH} fill="var(--border)" rx={4} opacity={0.3}/>
+              <rect x={PL} y={y} width={Math.max(w,2)} height={barH} fill={color} rx={4} opacity={0.9}/>
+              <text x={PL+w+5} y={y+barH/2+1} fontSize={11} fill="var(--text2)" dominantBaseline="middle">{val}</text>
+            </g>
+          );
+        })}
+      </svg>
+      {tooltip&&<div style={{position:'fixed',left:tooltip.x+12,top:tooltip.y-8,background:'var(--surface)',border:'1px solid var(--border)',borderRadius:8,padding:'6px 10px',fontSize:12,pointerEvents:'none',zIndex:9999,boxShadow:'var(--sh2)',whiteSpace:'nowrap'}}><b>{tooltip.name}</b>: {tooltip.val}</div>}
+    </div>
+  );
+}
 
 /* ═══════════════════════════════════════════════
    MOCK DATA
@@ -602,7 +801,7 @@ function Sidebar({ user, page, setPage, slim, mobOpen }) {
   return (
     <nav className={`sidebar${slim?' slim':''}${mobOpen?' mob-open':''}`}>
       <div className="sb-logo">
-        <div className="sb-logo-mark">Civic<em>OS</em></div>
+        <div className="sb-logo-mark">Botswana Communications Regulatory Authoriry<em></em></div>
         <div className="sb-logo-sub">Gov Services Portal</div>
       </div>
       <div className="sb-nav">
@@ -651,7 +850,7 @@ function Topbar({ user, page, onToggle, onLogout, dark, setDark }) {
     document.addEventListener('mousedown',fn);
     return()=>document.removeEventListener('mousedown',fn);
   },[]);
-  const meta = PAGE_META[page]||{label:'CivicOS',crumb:''};
+  const meta = PAGE_META[page]||{label:'BOCRA',crumb:''};
   return (
     <div className="topbar">
       <button className="tb-toggle" onClick={onToggle}>☰</button>
@@ -733,30 +932,12 @@ function Dashboard({ user }) {
         <div className="card">
           <div className="chart-title">Monthly Trend</div>
           <div className="chart-sub mb3">Complaints received vs resolved</div>
-          <Recharts.ResponsiveContainer width="100%" height={210}>
-            <Recharts.BarChart data={stats.monthlyTrend} margin={{top:0,right:0,left:-22,bottom:0}} barGap={3}>
-              <Recharts.CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false}/>
-              <Recharts.XAxis dataKey="month" tick={{fontSize:11,fill:'var(--text2)'}} axisLine={false} tickLine={false}/>
-              <Recharts.YAxis tick={{fontSize:11,fill:'var(--text2)'}} axisLine={false} tickLine={false}/>
-              <Recharts.Tooltip contentStyle={{background:'var(--surface)',border:'1px solid var(--border)',borderRadius:8,fontSize:12,boxShadow:'var(--sh2)'}}/>
-              <Recharts.Legend iconType="circle" iconSize={8} wrapperStyle={{fontSize:12}}/>
-              <Recharts.Bar dataKey="complaints" name="Received" fill="#e7c46e" radius={[4,4,0,0]}/>
-              <Recharts.Bar dataKey="resolved" name="Resolved" fill="#22975c" radius={[4,4,0,0]}/>
-            </Recharts.BarChart>
-          </Recharts.ResponsiveContainer>
+          <SvgBarChart data={stats.monthlyTrend} keys={["complaints","resolved"]} colors={["#e7c46e","#22975c"]} height={200}/>
         </div>
         <div className="card">
           <div className="chart-title">Complaints by Category</div>
           <div className="chart-sub mb3">Distribution across service areas</div>
-          <Recharts.ResponsiveContainer width="100%" height={210}>
-            <Recharts.PieChart>
-              <Recharts.Pie data={stats.byCat} cx="50%" cy="50%" innerRadius={55} outerRadius={85} paddingAngle={3} dataKey="value">
-                {stats.byCat.map((_, i) => <Recharts.Cell key={i} fill={PIE_COLORS[i%PIE_COLORS.length]}/>)}
-              </Recharts.Pie>
-              <Recharts.Tooltip contentStyle={{background:'var(--surface)',border:'1px solid var(--border)',borderRadius:8,fontSize:12}}/>
-              <Recharts.Legend iconType="circle" iconSize={8} wrapperStyle={{fontSize:12}}/>
-            </Recharts.PieChart>
-          </Recharts.ResponsiveContainer>
+          <SvgPieChart data={stats.byCat} colors={PIE_COLORS} height={190} donut={true}/>
         </div>
       </div>
 
@@ -790,20 +971,7 @@ function Dashboard({ user }) {
         <div className="card">
           <div className="chart-title">License Pipeline</div>
           <div className="chart-sub mb3">Applications by status</div>
-          <Recharts.ResponsiveContainer width="100%" height={160}>
-            <Recharts.BarChart data={[
-              {name:'Submitted',v:stats.licSubmitted},{name:'Review',v:stats.licReview},
-              {name:'Approved',v:stats.licApproved},{name:'Rejected',v:stats.licRejected},
-            ]} layout="vertical" margin={{left:10,right:10}}>
-              <Recharts.CartesianGrid strokeDasharray="3 3" stroke="var(--border)" horizontal={false}/>
-              <Recharts.XAxis type="number" tick={{fontSize:11,fill:'var(--text2)'}} axisLine={false} tickLine={false}/>
-              <Recharts.YAxis type="category" dataKey="name" tick={{fontSize:11,fill:'var(--text2)'}} axisLine={false} tickLine={false}/>
-              <Recharts.Tooltip contentStyle={{background:'var(--surface)',border:'1px solid var(--border)',borderRadius:8,fontSize:12}}/>
-              <Recharts.Bar dataKey="v" name="Applications" radius={[0,4,4,0]}>
-                {[{fill:'#2060cc'},{fill:'#c47820'},{fill:'#22975c'},{fill:'#c43030'}].map((e,i)=><Recharts.Cell key={i} {...e}/>)}
-              </Recharts.Bar>
-            </Recharts.BarChart>
-          </Recharts.ResponsiveContainer>
+          <SvgHBarChart data={[{name:"Submitted",v:stats.licSubmitted},{name:"Review",v:stats.licReview},{name:"Approved",v:stats.licApproved},{name:"Rejected",v:stats.licRejected}]} dataKey="v" nameKey="name" colors={["#2060cc","#c47820","#22975c","#c43030"]}/>
           <div className="divider"></div>
           <div className="chart-title" style={{fontSize:14,marginBottom:8}}>Complaints by Ward</div>
           {stats.byWard.map((w,i)=>(
@@ -1535,48 +1703,18 @@ function Analytics({ user }) {
         <div className="card">
           <div className="chart-title">Resolution Rate Trend</div>
           <div className="chart-sub mb3">Month-over-month resolution efficiency</div>
-          <Recharts.ResponsiveContainer width="100%" height={220}>
-            <Recharts.LineChart data={trend} margin={{top:5,right:10,left:-20,bottom:0}}>
-              <Recharts.CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false}/>
-              <Recharts.XAxis dataKey="month" tick={{fontSize:11,fill:'var(--text2)'}} axisLine={false} tickLine={false}/>
-              <Recharts.YAxis tick={{fontSize:11,fill:'var(--text2)'}} axisLine={false} tickLine={false} unit="%"/>
-              <Recharts.Tooltip contentStyle={{background:'var(--surface)',border:'1px solid var(--border)',borderRadius:8,fontSize:12}}/>
-              <Recharts.Line type="monotone" dataKey="rate" name="Resolution %" stroke="#e7c46e" strokeWidth={2.5} dot={{fill:'#e7c46e',r:4,strokeWidth:0}} activeDot={{r:7,strokeWidth:0}}/>
-            </Recharts.LineChart>
-          </Recharts.ResponsiveContainer>
+          <SvgLineChart data={trend} keys={["rate"]} colors={["#e7c46e"]} height={200} unit="%"/>
         </div>
         <div className="card">
           <div className="chart-title">Category Distribution</div>
           <div className="chart-sub mb3">Complaints by service area</div>
-          <Recharts.ResponsiveContainer width="100%" height={220}>
-            <Recharts.PieChart>
-              <Recharts.Pie data={stats.byCat} cx="50%" cy="50%" outerRadius={90} paddingAngle={3} dataKey="value" label={({name,percent})=>`${(percent*100).toFixed(0)}%`} labelLine>
-                {stats.byCat.map((_,i)=><Recharts.Cell key={i} fill={PIE_COLORS[i%PIE_COLORS.length]}/>)}
-              </Recharts.Pie>
-              <Recharts.Tooltip contentStyle={{background:'var(--surface)',border:'1px solid var(--border)',borderRadius:8,fontSize:12}}/>
-              <Recharts.Legend iconType="circle" iconSize={8} wrapperStyle={{fontSize:12}}/>
-            </Recharts.PieChart>
-          </Recharts.ResponsiveContainer>
+          <SvgPieChart data={stats.byCat} colors={PIE_COLORS} height={200} donut={false}/>
         </div>
       </div>
       <div className="card" style={{marginBottom:16}}>
         <div className="chart-title">Volume & Resolution — 6 Month Area Chart</div>
         <div className="chart-sub mb3">Complaint intake vs resolution over time</div>
-        <Recharts.ResponsiveContainer width="100%" height={240}>
-          <Recharts.AreaChart data={trend} margin={{top:5,right:10,left:-20,bottom:0}}>
-            <defs>
-              <linearGradient id="gC" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#e7c46e" stopOpacity={.25}/><stop offset="95%" stopColor="#e7c46e" stopOpacity={0}/></linearGradient>
-              <linearGradient id="gR" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#22975c" stopOpacity={.25}/><stop offset="95%" stopColor="#22975c" stopOpacity={0}/></linearGradient>
-            </defs>
-            <Recharts.CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false}/>
-            <Recharts.XAxis dataKey="month" tick={{fontSize:11,fill:'var(--text2)'}} axisLine={false} tickLine={false}/>
-            <Recharts.YAxis tick={{fontSize:11,fill:'var(--text2)'}} axisLine={false} tickLine={false}/>
-            <Recharts.Tooltip contentStyle={{background:'var(--surface)',border:'1px solid var(--border)',borderRadius:8,fontSize:12}}/>
-            <Recharts.Legend iconType="circle" iconSize={8} wrapperStyle={{fontSize:12}}/>
-            <Recharts.Area type="monotone" dataKey="complaints" name="Received" stroke="#e7c46e" strokeWidth={2} fill="url(#gC)"/>
-            <Recharts.Area type="monotone" dataKey="resolved" name="Resolved" stroke="#22975c" strokeWidth={2} fill="url(#gR)"/>
-          </Recharts.AreaChart>
-        </Recharts.ResponsiveContainer>
+        <SvgLineChart data={trend} keys={["complaints","resolved"]} colors={["#e7c46e","#22975c"]} height={230} area={true}/>
       </div>
       <div className="charts-grid">
         <div className="card">
@@ -1593,17 +1731,7 @@ function Analytics({ user }) {
         <div className="card">
           <div className="chart-title">License Pipeline Stats</div>
           <div className="chart-sub mb3">Application processing overview</div>
-          <Recharts.ResponsiveContainer width="100%" height={200}>
-            <Recharts.RadarChart data={[
-              {subject:'Submitted',A:stats.licSubmitted},{subject:'Review',A:stats.licReview},
-              {subject:'Approved',A:stats.licApproved},{subject:'Rejected',A:stats.licRejected},
-            ]}>
-              <Recharts.PolarGrid stroke="var(--border)"/>
-              <Recharts.PolarAngleAxis dataKey="subject" tick={{fontSize:11,fill:'var(--text2)'}}/>
-              <Recharts.Radar name="Licenses" dataKey="A" stroke="#e7c46e" fill="#e7c46e" fillOpacity={0.15}/>
-              <Recharts.Tooltip contentStyle={{background:'var(--surface)',border:'1px solid var(--border)',borderRadius:8,fontSize:12}}/>
-            </Recharts.RadarChart>
-          </Recharts.ResponsiveContainer>
+          <SvgHBarChart data={[{name:"Submitted",v:stats.licSubmitted},{name:"Review",v:stats.licReview},{name:"Approved",v:stats.licApproved},{name:"Rejected",v:stats.licRejected}]} dataKey="v" nameKey="name" colors={["#2060cc","#c47820","#22975c","#c43030"]}/>
         </div>
       </div>
     </div>
@@ -1835,7 +1963,9 @@ function App() {
   );
 }
 
-ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+ReactDOM.createRoot(document.getElementById('root')).render(
+  <ErrBoundary><App/></ErrBoundary>
+);
 </script>
 </body>
 </html>
