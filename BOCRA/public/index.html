@@ -1,0 +1,1841 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>BOCRA — Complaint & Licensing Portal</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,500;0,9..144,700;1,9..144,400&family=Instrument+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet"/>
+<script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/recharts/2.8.0/Recharts.js"></script>
+<style>
+/* ── RESET & BASE ── */
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html,body,#root{height:100%;min-height:100%}
+:root {
+  --bg:#f0ece4;
+  --bg2:#e8e3d8;
+  --surface:#ffffff;
+  --surface2:#f7f4ef;
+  --sidebar:#111118;
+  --sidebar2:#1c1c28;
+  --sidebar-border:rgba(255,255,255,0.06);
+  --sidebar-hover:rgba(255,255,255,0.05);
+  --sidebar-active:rgba(231,196,110,0.12);
+  --gold:#e7c46e;
+  --gold-dim:#f5e6be;
+  --gold-dark:#b8943a;
+  --gold-glow:rgba(231,196,110,0.25);
+  --teal:#2db8a8;
+  --teal-bg:rgba(45,184,168,0.08);
+  --text:#111118;
+  --text2:#5a5670;
+  --text3:#9490a8;
+  --nav-text:rgba(210,205,230,0.7);
+  --nav-active:#ffffff;
+  --border:#ddd8cc;
+  --border2:#ccc8bc;
+  --ok:#22975c;
+  --ok-bg:#e6f7f0;
+  --warn:#c47820;
+  --warn-bg:#fef3e2;
+  --err:#c43030;
+  --err-bg:#fde8e8;
+  --info:#2060cc;
+  --info-bg:#e8effe;
+  --sw:260px;
+  --th:60px;
+  --r:10px;
+  --r2:16px;
+  --sh1:0 1px 4px rgba(17,17,24,0.07);
+  --sh2:0 4px 20px rgba(17,17,24,0.10);
+  --sh3:0 12px 48px rgba(17,17,24,0.15);
+  --fd:200ms cubic-bezier(.4,0,.2,1);
+  --fd-slow:350ms cubic-bezier(.4,0,.2,1);
+}
+[data-theme=dark]{
+  --bg:#0d0d16;--bg2:#12121e;--surface:#1a1a28;--surface2:#22223a;
+  --border:#2a2a40;--border2:#333358;
+  --text:#e8e4f4;--text2:#8888aa;--text3:#5555778;
+  --ok-bg:#0a2018;--warn-bg:#1e1200;--err-bg:#1e0808;--info-bg:#080e22;
+}
+body{font-family:'Instrument Sans',sans-serif;background:var(--bg);color:var(--text);font-size:14px;line-height:1.55;transition:background .3s,color .3s}
+
+/* ── SCROLLBAR ── */
+::-webkit-scrollbar{width:5px;height:5px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--border2);border-radius:99px}
+
+/* ── LAYOUT ── */
+.shell{display:flex;height:100vh;overflow:hidden}
+.sidebar{width:var(--sw);background:var(--sidebar);display:flex;flex-direction:column;flex-shrink:0;border-right:1px solid var(--sidebar-border);position:relative;z-index:100;transition:width var(--fd-slow)}
+.sidebar.slim{width:64px}
+.main{flex:1;display:flex;flex-direction:column;overflow:hidden;min-width:0}
+.topbar{height:var(--th);background:var(--surface);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 20px;gap:12px;flex-shrink:0;box-shadow:var(--sh1);z-index:90}
+.content{flex:1;overflow-y:auto;padding:24px;background:var(--bg)}
+.mobile-veil{display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:200;backdrop-filter:blur(2px)}
+@media(max-width:780px){.sidebar{position:fixed;top:0;bottom:0;left:-100%;z-index:300;width:var(--sw)!important;transition:left var(--fd-slow)}.sidebar.mob-open{left:0}.mobile-veil{display:block;opacity:0;pointer-events:none;transition:opacity var(--fd)}.mobile-veil.vis{opacity:1;pointer-events:auto}.content{padding:16px}}
+
+/* ── SIDEBAR INTERNALS ── */
+.sb-logo{padding:18px 16px 14px;border-bottom:1px solid var(--sidebar-border);white-space:nowrap;overflow:hidden}
+.sb-logo-mark{font-family:'Fraunces',serif;font-size:22px;color:#fff;letter-spacing:-.3px}
+.sb-logo-mark em{color:var(--gold);font-style:normal}
+.sb-logo-sub{font-size:10px;letter-spacing:1.8px;text-transform:uppercase;color:rgba(210,205,230,.35);margin-top:3px}
+.sb-nav{flex:1;padding:10px 8px;overflow-y:auto}
+.sb-section{font-size:9.5px;letter-spacing:2px;text-transform:uppercase;color:rgba(210,205,230,.25);padding:10px 10px 4px}
+.slim .sb-section,.slim .sb-logo-sub,.slim .nav-label,.slim .nav-badge,.slim .sb-logo-mark em,.slim .user-meta{display:none}
+.slim .sb-logo-mark{font-size:16px}
+.nav-item{display:flex;align-items:center;gap:11px;padding:9px 10px;border-radius:8px;cursor:pointer;color:var(--nav-text);font-size:13.5px;font-weight:500;transition:var(--fd);position:relative;white-space:nowrap;overflow:hidden;margin-bottom:1px;user-select:none}
+.nav-item:hover{background:var(--sidebar-hover);color:#fff}
+.nav-item.on{background:var(--sidebar-active);color:var(--nav-active)}
+.nav-item.on::before{content:'';position:absolute;left:0;top:5px;bottom:5px;width:3px;background:var(--gold);border-radius:0 3px 3px 0}
+.nav-icon{font-size:16px;flex-shrink:0;width:22px;text-align:center;opacity:.8}
+.nav-item.on .nav-icon,.nav-item:hover .nav-icon{opacity:1}
+.nav-badge{margin-left:auto;background:var(--gold);color:#111;font-size:10px;font-weight:700;padding:1px 7px;border-radius:99px;line-height:1.6}
+.sb-footer{padding:10px 8px;border-top:1px solid var(--sidebar-border)}
+.sb-user{display:flex;align-items:center;gap:10px;padding:8px;border-radius:8px;cursor:pointer;transition:var(--fd);overflow:hidden}
+.sb-user:hover{background:var(--sidebar-hover)}
+.user-meta{overflow:hidden;flex:1;white-space:nowrap}
+.user-name{font-size:13px;font-weight:600;color:#fff;overflow:hidden;text-overflow:ellipsis}
+.user-role-txt{font-size:11px;margin-top:1px}
+
+/* ── TOPBAR INTERNALS ── */
+.tb-toggle{width:36px;height:36px;border:1px solid var(--border);border-radius:8px;background:var(--bg);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:16px;color:var(--text2);transition:var(--fd);flex-shrink:0}
+.tb-toggle:hover{background:var(--surface);color:var(--text);border-color:var(--border2)}
+.tb-title{flex:1;overflow:hidden}
+.tb-page{font-family:'Fraunces',serif;font-size:17px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tb-crumb{font-size:11px;color:var(--text3)}
+.tb-actions{display:flex;align-items:center;gap:8px}
+.icon-btn{width:36px;height:36px;border:1px solid var(--border);border-radius:8px;background:var(--bg);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:15px;color:var(--text2);transition:var(--fd);position:relative;flex-shrink:0}
+.icon-btn:hover{background:var(--surface);color:var(--text);border-color:var(--border2)}
+.notif-dot{position:absolute;top:5px;right:5px;width:8px;height:8px;background:var(--err);border-radius:50%;border:2px solid var(--surface)}
+
+/* ── PAGE HEADER ── */
+.ph{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:22px;flex-wrap:wrap}
+.ph-left{}
+.ph-title{font-family:'Fraunces',serif;font-size:26px;font-weight:500;line-height:1.15;color:var(--text)}
+.ph-sub{color:var(--text2);font-size:13px;margin-top:3px}
+.ph-right{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+
+/* ── BUTTONS ── */
+.btn{display:inline-flex;align-items:center;gap:7px;padding:8px 16px;border-radius:8px;font-size:13.5px;font-weight:600;cursor:pointer;border:none;transition:var(--fd);font-family:'Instrument Sans',sans-serif;white-space:nowrap;letter-spacing:.1px}
+.btn-gold{background:var(--gold);color:#111118}
+.btn-gold:hover{background:var(--gold-dark);color:#fff;box-shadow:0 4px 14px var(--gold-glow);transform:translateY(-1px)}
+.btn-dark{background:var(--text);color:var(--bg)}
+.btn-dark:hover{opacity:.88;transform:translateY(-1px)}
+.btn-ghost{background:transparent;color:var(--text2);border:1.5px solid var(--border)}
+.btn-ghost:hover{border-color:var(--border2);color:var(--text);background:var(--surface)}
+.btn-ok{background:var(--ok);color:#fff}
+.btn-ok:hover{opacity:.9;transform:translateY(-1px)}
+.btn-err{background:var(--err);color:#fff}
+.btn-err:hover{opacity:.9;transform:translateY(-1px)}
+.btn-teal{background:var(--teal);color:#fff}
+.btn-teal:hover{opacity:.9;transform:translateY(-1px)}
+.btn-sm{padding:5px 11px;font-size:12.5px}
+.btn-xs{padding:3px 9px;font-size:11.5px}
+.btn:disabled{opacity:.45;pointer-events:none}
+
+/* ── CARDS ── */
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r2);padding:22px;box-shadow:var(--sh1);transition:var(--fd)}
+.card:hover{box-shadow:var(--sh2)}
+.card-flat{box-shadow:none}
+.card-sm{padding:14px}
+
+/* ── STAT CARDS ── */
+.stats-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:14px;margin-bottom:20px}
+.stat{background:var(--surface);border:1px solid var(--border);border-radius:var(--r2);padding:18px;position:relative;overflow:hidden;transition:var(--fd);cursor:default}
+.stat:hover{transform:translateY(-2px);box-shadow:var(--sh2)}
+.stat-glow{position:absolute;right:-16px;top:-16px;width:72px;height:72px;border-radius:50%;opacity:.08}
+.stat-label{font-size:11px;font-weight:600;letter-spacing:.9px;text-transform:uppercase;color:var(--text2);margin-bottom:6px}
+.stat-val{font-family:'Fraunces',serif;font-size:38px;line-height:1;color:var(--text);font-weight:300}
+.stat-footer{font-size:11.5px;color:var(--text3);margin-top:6px;display:flex;align-items:center;gap:5px}
+.stat-up{color:var(--ok)}
+.stat-dn{color:var(--err)}
+
+/* ── TABLE ── */
+.tbl-wrap{overflow-x:auto;border-radius:var(--r2);border:1px solid var(--border)}
+table{width:100%;border-collapse:collapse}
+thead tr{background:var(--surface2)}
+th{font-size:10.5px;font-weight:700;letter-spacing:.9px;text-transform:uppercase;color:var(--text2);padding:10px 14px;text-align:left;border-bottom:1px solid var(--border);white-space:nowrap}
+td{padding:12px 14px;border-bottom:1px solid var(--border);color:var(--text);font-size:13.5px;vertical-align:middle}
+tr:last-child td{border-bottom:none}
+tbody tr{transition:var(--fd)}
+tbody tr:hover td{background:rgba(231,196,110,.04)}
+[data-theme=dark] tbody tr:hover td{background:rgba(255,255,255,.025)}
+
+/* ── STATUS BADGES ── */
+.badge{display:inline-flex;align-items:center;gap:5px;font-size:11.5px;font-weight:700;padding:3px 9px;border-radius:99px;letter-spacing:.2px}
+.badge-dot{width:5px;height:5px;border-radius:50%;background:currentColor;flex-shrink:0}
+.b-pending{background:var(--warn-bg);color:var(--warn)}
+.b-progress{background:var(--info-bg);color:var(--info)}
+.b-resolved{background:var(--ok-bg);color:var(--ok)}
+.b-submitted{background:var(--info-bg);color:var(--info)}
+.b-review{background:var(--warn-bg);color:var(--warn)}
+.b-approved{background:var(--ok-bg);color:var(--ok)}
+.b-rejected{background:var(--err-bg);color:var(--err)}
+
+/* ── ROLE BADGES ── */
+.rbadge{font-size:10px;font-weight:700;letter-spacing:.7px;text-transform:uppercase;padding:2px 8px;border-radius:4px}
+.rb-admin{background:rgba(231,196,110,.15);color:var(--gold-dark)}
+.rb-officer{background:rgba(32,96,204,.12);color:var(--info)}
+.rb-citizen{background:rgba(34,151,92,.12);color:var(--ok)}
+
+/* ── PRIORITY ── */
+.prio{font-size:11px;font-weight:700;padding:2px 8px;border-radius:4px}
+.p-high{background:var(--err-bg);color:var(--err)}
+.p-med{background:var(--warn-bg);color:var(--warn)}
+.p-low{background:var(--ok-bg);color:var(--ok)}
+
+/* ── FORMS ── */
+.fg{display:flex;flex-direction:column;gap:5px;margin-bottom:16px}
+.fg:last-child{margin-bottom:0}
+label,.lbl{font-size:13px;font-weight:600;color:var(--text)}
+.lhint{font-size:11.5px;color:var(--text3);font-weight:400;margin-left:4px}
+input,select,textarea{width:100%;padding:9px 13px;border:1.5px solid var(--border);border-radius:8px;font-family:'Instrument Sans',sans-serif;font-size:13.5px;background:var(--surface);color:var(--text);transition:var(--fd);outline:none;-webkit-appearance:none}
+input:focus,select:focus,textarea:focus{border-color:var(--gold);box-shadow:0 0 0 3px var(--gold-glow)}
+input.err,select.err,textarea.err{border-color:var(--err)}
+textarea{resize:vertical;min-height:88px;line-height:1.5}
+.emsg{font-size:11.5px;color:var(--err);margin-top:2px}
+.frow{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+@media(max-width:520px){.frow{grid-template-columns:1fr}}
+select{cursor:pointer;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%239490a8' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 12px center;padding-right:36px}
+
+/* ── SEARCH & FILTER ── */
+.filter-bar{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;align-items:center}
+.search-wrap{position:relative;flex:1;min-width:200px}
+.search-wrap input{padding-left:36px}
+.search-ico{position:absolute;left:11px;top:50%;transform:translateY(-50%);color:var(--text3);font-size:14px;pointer-events:none}
+.fsel{min-width:130px;width:auto}
+
+/* ── PAGINATION ── */
+.pag{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 16px 0;flex-wrap:wrap;border-top:1px solid var(--border)}
+.pag-info{font-size:12.5px;color:var(--text3)}
+.pag-btns{display:flex;gap:3px}
+.pb{width:30px;height:30px;border:1px solid var(--border);border-radius:7px;background:var(--surface);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:12.5px;color:var(--text2);transition:var(--fd)}
+.pb:hover{border-color:var(--gold);color:var(--gold-dark)}
+.pb.on{background:var(--text);border-color:var(--text);color:var(--bg)}
+.pb:disabled{opacity:.35;cursor:not-allowed}
+
+/* ── MODAL ── */
+.overlay{position:fixed;inset:0;background:rgba(10,10,20,.6);z-index:500;display:flex;align-items:center;justify-content:center;padding:16px;backdrop-filter:blur(5px);animation:fIn .15s ease}
+.modal{background:var(--surface);border-radius:20px;width:100%;max-width:600px;max-height:92vh;overflow-y:auto;box-shadow:var(--sh3);animation:sUp .2s ease;border:1px solid var(--border)}
+.modal-lg{max-width:700px}
+.mhead{display:flex;align-items:center;justify-content:space-between;padding:18px 22px;border-bottom:1px solid var(--border);position:sticky;top:0;background:var(--surface);z-index:2;border-radius:20px 20px 0 0}
+.mtitle{font-family:'Fraunces',serif;font-size:19px;font-weight:500}
+.mbody{padding:22px}
+.mfoot{padding:14px 22px;border-top:1px solid var(--border);display:flex;gap:8px;justify-content:flex-end;background:var(--surface2);border-radius:0 0 20px 20px}
+.close-x{background:none;border:none;font-size:18px;cursor:pointer;color:var(--text3);border-radius:6px;padding:4px 8px;transition:var(--fd)}
+.close-x:hover{background:var(--bg2);color:var(--text)}
+
+/* ── STEPS ── */
+.steps{display:flex;position:relative;margin-bottom:28px}
+.steps::after{content:'';position:absolute;left:0;right:0;top:17px;height:1px;background:var(--border);z-index:0}
+.step-item{flex:1;display:flex;flex-direction:column;align-items:center;gap:7px;position:relative;z-index:1}
+.step-ring{width:34px;height:34px;border-radius:50%;border:2px solid var(--border);background:var(--surface);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:var(--text3);transition:var(--fd)}
+.step-item.cur .step-ring{border-color:var(--gold);background:var(--gold);color:#111}
+.step-item.done .step-ring{border-color:var(--ok);background:var(--ok);color:#fff}
+.step-lbl{font-size:10.5px;color:var(--text3);font-weight:600;text-align:center;letter-spacing:.3px}
+.step-item.cur .step-lbl{color:var(--text)}
+.step-item.done .step-lbl{color:var(--ok)}
+
+/* ── TIMELINE ── */
+.tl{display:flex;flex-direction:column}
+.tl-item{display:flex;gap:14px;padding-bottom:18px;position:relative}
+.tl-item:not(:last-child)::before{content:'';position:absolute;left:14px;top:28px;bottom:0;width:1.5px;background:var(--border)}
+.tl-dot{width:28px;height:28px;border-radius:50%;border:2px solid var(--gold);background:var(--gold-dim);display:flex;align-items:center;justify-content:center;font-size:11px;flex-shrink:0}
+[data-theme=dark] .tl-dot{background:rgba(231,196,110,.15)}
+.tl-body{flex:1;padding-top:2px}
+.tl-title{font-weight:600;font-size:13.5px}
+.tl-meta{font-size:11px;color:var(--text3);font-family:'Fira Code',monospace;margin-top:2px}
+.tl-note{font-size:13px;color:var(--text2);margin-top:5px;padding:8px 10px;background:var(--surface2);border-radius:7px;border-left:3px solid var(--gold)}
+
+/* ── CHARTS ── */
+.charts-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px}
+@media(max-width:780px){.charts-grid{grid-template-columns:1fr}}
+.chart-title{font-family:'Fraunces',serif;font-size:16px;font-weight:500;margin-bottom:4px}
+.chart-sub{font-size:12px;color:var(--text3)}
+
+/* ── UPLOAD ZONE ── */
+.upzone{border:2px dashed var(--border);border-radius:var(--r);padding:28px 20px;text-align:center;cursor:pointer;transition:var(--fd)}
+.upzone:hover,.upzone.drag{border-color:var(--gold);background:rgba(231,196,110,.04)}
+.upzone-ico{font-size:28px;margin-bottom:8px;opacity:.6}
+.upzone-txt{font-size:13.5px;color:var(--text2);font-weight:500}
+.upzone-hint{font-size:11.5px;color:var(--text3);margin-top:3px}
+.file-chip{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;background:var(--surface2);border:1px solid var(--border);border-radius:6px;font-size:12px;color:var(--text2);cursor:pointer;margin:3px}
+.file-chip:hover{border-color:var(--err);color:var(--err)}
+
+/* ── NOTIFICATIONS PANEL ── */
+.notif-pane{position:absolute;right:0;top:calc(100% + 8px);width:320px;background:var(--surface);border:1px solid var(--border);border-radius:var(--r2);box-shadow:var(--sh3);z-index:400;overflow:hidden}
+.np-head{display:flex;align-items:center;justify-content:space-between;padding:12px 14px;border-bottom:1px solid var(--border)}
+.np-title{font-weight:700;font-size:13.5px}
+.notif-row{padding:12px 14px;border-bottom:1px solid var(--border);cursor:pointer;transition:var(--fd)}
+.notif-row:last-child{border-bottom:none}
+.notif-row:hover{background:var(--surface2)}
+.notif-row.unread{background:rgba(231,196,110,.05);border-left:3px solid var(--gold)}
+.notif-row.unread:not(:last-child){border-bottom-color:var(--border)}
+.nr-title{font-size:13px;font-weight:600}
+.nr-desc{font-size:12px;color:var(--text2);margin-top:2px}
+.nr-time{font-size:10.5px;color:var(--text3);font-family:'Fira Code',monospace;margin-top:4px}
+
+/* ── AVATAR ── */
+.av{border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;flex-shrink:0;letter-spacing:.5px}
+
+/* ── MISC ── */
+.tag{display:inline-flex;align-items:center;gap:4px;font-size:11.5px;padding:2px 8px;border-radius:5px;background:var(--surface2);border:1px solid var(--border);color:var(--text2);font-weight:600}
+.chip{display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border-radius:7px;background:var(--bg2);border:1px solid var(--border);font-size:12px;color:var(--text2);font-weight:500}
+.divider{height:1px;background:var(--border);margin:18px 0}
+.mono{font-family:'Fira Code',monospace}
+.text-gold{color:var(--gold-dark)}
+.text-muted{color:var(--text2)}
+.text-xs{font-size:11px}
+.text-sm{font-size:12.5px}
+.fw6{font-weight:600}
+.fw7{font-weight:700}
+.empty{text-align:center;padding:44px 20px;color:var(--text3)}
+.empty-ico{font-size:36px;margin-bottom:10px;opacity:.5}
+.empty-txt{font-size:15px;font-weight:600;color:var(--text2)}
+.empty-sub{font-size:13px;margin-top:4px}
+.flex{display:flex}.flex-col{flex-direction:column}
+.items-c{align-items:center}.justify-b{justify-content:space-between}
+.gap1{gap:4px}.gap2{gap:8px}.gap3{gap:12px}.gap4{gap:16px}
+.mb1{margin-bottom:4px}.mb2{margin-bottom:8px}.mb3{margin-bottom:12px}.mb4{margin-bottom:16px}.mt3{margin-top:12px}.mt4{margin-top:16px}
+.progress{background:var(--border);border-radius:99px;height:7px;overflow:hidden}
+.progress-fill{height:100%;border-radius:99px;transition:width .5s ease}
+.info-box{padding:12px 14px;border-radius:8px;border-left:4px solid var(--info);background:var(--info-bg);font-size:13px;color:var(--info)}
+.warn-box{padding:12px 14px;border-radius:8px;border-left:4px solid var(--warn);background:var(--warn-bg);font-size:13px;color:var(--warn)}
+.ok-box{padding:12px 14px;border-radius:8px;border-left:4px solid var(--ok);background:var(--ok-bg);font-size:13px;color:var(--ok)}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+@media(max-width:600px){.grid2{grid-template-columns:1fr}}
+.kv{display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid var(--border);font-size:13px}
+.kv:last-child{border-bottom:none}
+.kv-key{color:var(--text2)}
+.kv-val{font-weight:600;text-align:right}
+
+/* ── LOGIN ── */
+.login-root{min-height:100vh;display:flex;align-items:center;justify-content:center;background:var(--sidebar);position:relative;overflow:hidden}
+.login-bg{position:absolute;inset:0;background:radial-gradient(ellipse at 25% 60%,rgba(231,196,110,.12) 0%,transparent 55%),radial-gradient(ellipse at 80% 15%,rgba(45,184,168,.08) 0%,transparent 45%),radial-gradient(ellipse at 60% 90%,rgba(32,96,204,.07) 0%,transparent 40%)}
+.login-card{width:420px;background:var(--sidebar2);border:1px solid rgba(255,255,255,.08);border-radius:22px;padding:38px;position:relative;z-index:1;box-shadow:0 32px 80px rgba(0,0,0,.5)}
+.login-logo{font-family:'Fraunces',serif;font-size:26px;color:#fff;margin-bottom:2px}
+.login-logo em{color:var(--gold);font-style:normal}
+.login-tagline{font-size:12.5px;color:rgba(210,205,230,.4);margin-bottom:28px;letter-spacing:.3px}
+.role-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:22px}
+.role-btn{padding:13px 8px;border-radius:10px;border:1.5px solid rgba(255,255,255,.08);background:rgba(255,255,255,.03);cursor:pointer;text-align:center;transition:var(--fd)}
+.role-btn.sel{border-color:var(--gold);background:rgba(231,196,110,.09)}
+.role-btn:hover:not(.sel){border-color:rgba(255,255,255,.14);background:rgba(255,255,255,.05)}
+.role-icon{font-size:24px;margin-bottom:5px}
+.role-name{font-size:12px;font-weight:700;color:rgba(232,228,244,.85)}
+.login-label{font-size:12.5px;font-weight:600;color:rgba(210,205,230,.7);display:block;margin-bottom:5px}
+.login-input{background:rgba(255,255,255,.05)!important;border-color:rgba(255,255,255,.1)!important;color:#e8e4f4!important}
+.login-input::placeholder{color:rgba(210,205,230,.3)!important}
+.login-input:focus{border-color:var(--gold)!important}
+
+/* ── TOAST ── */
+.toast-wrap{position:fixed;bottom:20px;right:20px;z-index:999;display:flex;flex-direction:column;gap:8px;pointer-events:none}
+.toast{pointer-events:auto;background:var(--sidebar);color:#fff;padding:12px 16px;border-radius:10px;font-size:13px;font-weight:500;display:flex;align-items:center;gap:10px;box-shadow:var(--sh3);animation:sUp .25s ease,fOut .3s ease 2.7s forwards;border-left:4px solid var(--gold)}
+.toast.t-ok{border-color:var(--ok)}
+.toast.t-err{border-color:var(--err)}
+
+/* ── KEYFRAMES ── */
+@keyframes fIn{from{opacity:0}to{opacity:1}}
+@keyframes sUp{from{transform:translateY(16px);opacity:0}to{transform:translateY(0);opacity:1}}
+@keyframes fOut{from{opacity:1;transform:translateY(0)}to{opacity:0;transform:translateY(8px)}}
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes pulse{0%,100%{opacity:.6}50%{opacity:1}}
+
+/* ── SPINNER ── */
+.spin{display:inline-block;width:16px;height:16px;border:2px solid rgba(255,255,255,.3);border-top-color:currentColor;border-radius:50%;animation:spin .65s linear infinite}
+.spin-dark{border-color:var(--border);border-top-color:var(--text)}
+.loading-row{display:flex;align-items:center;gap:10px;padding:36px 0;color:var(--text2)}
+
+/* ── DETAIL VIEW ── */
+.detail-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px}
+@media(max-width:600px){.detail-grid{grid-template-columns:1fr}}
+
+/* ── ACTIVITY FEED ── */
+.activity-item{display:flex;gap:12px;padding:10px 0;border-bottom:1px solid var(--border)}
+.activity-item:last-child{border-bottom:none}
+.act-ico{width:32px;height:32px;border-radius:8px;background:var(--surface2);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0}
+.act-body{flex:1}
+.act-txt{font-size:13px}
+.act-time{font-size:11px;color:var(--text3);font-family:'Fira Code',monospace;margin-top:2px}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+
+const { useState, useEffect, useContext, createContext, useCallback, useMemo, useRef } = React;
+
+/* ═══════════════════════════════════════════════
+   MOCK DATA
+═══════════════════════════════════════════════ */
+const SEED_COMPLAINTS = [
+  { id:'CMP-001', title:'Pothole on Main Street near Polytechnic', category:'Infrastructure', status:'Pending', priority:'High', citizen:'Amara Dube', citizenId:'U001', assignedTo:'Officer Kgosi', ward:'Ward 11', date:'2026-03-18', description:'Large pothole approximately 60cm wide causing significant vehicle damage near the intersection of Khama Crescent.', attachments:['pothole_photo.jpg'], history:[{action:'Submitted',by:'Amara Dube',date:'2026-03-18 09:14',note:'Submitted via online portal.'}] },
+  { id:'CMP-002', title:'Water Supply Interrupted — Block 7 Residential', category:'Utilities', status:'In Progress', priority:'High', citizen:'Thabo Modise', citizenId:'U002', assignedTo:'Officer Kgosi', ward:'Ward 3', date:'2026-03-15', description:'No water supply for 3 consecutive days. Affecting over 40 households in Block 7.', attachments:[], history:[{action:'Submitted',by:'Thabo Modise',date:'2026-03-15 07:22',note:''},{action:'Assigned',by:'Admin Refilwe',date:'2026-03-16 08:00',note:'Assigned to infrastructure team for urgent response.'},{action:'Status → In Progress',by:'Officer Kgosi',date:'2026-03-17 10:30',note:'Water utility team has been dispatched. Temporary supply tanker deployed.'}] },
+  { id:'CMP-003', title:'Illegal Dumping at Notwane River Banks', category:'Environment', status:'Resolved', priority:'Medium', citizen:'Lesedi Tau', citizenId:'U003', assignedTo:'Officer Mpho', ward:'Ward 6', date:'2026-03-10', description:'Large volumes of construction waste dumped illegally near the river banks, causing environmental hazard.', attachments:['evidence1.jpg','evidence2.jpg'], history:[{action:'Submitted',by:'Lesedi Tau',date:'2026-03-10 14:05',note:''},{action:'Status → In Progress',by:'Officer Mpho',date:'2026-03-12 09:00',note:'Environmental officer dispatched for site assessment.'},{action:'Status → Resolved',by:'Officer Mpho',date:'2026-03-14 16:00',note:'Site fully cleared. Perpetrators identified and issued formal warnings. Follow-up inspection scheduled for March 28.'}] },
+  { id:'CMP-004', title:'8 Street Lights Non-Functional — Block 3', category:'Infrastructure', status:'Pending', priority:'Medium', citizen:'Naledi Setlhare', citizenId:'U004', assignedTo:null, ward:'Ward 9', date:'2026-03-20', description:'Eight consecutive street lights are not functioning along the main road in Block 3. Serious safety hazard at night.', attachments:[], history:[{action:'Submitted',by:'Naledi Setlhare',date:'2026-03-20 21:45',note:'Safety concern reported — area very dark at night.'}] },
+  { id:'CMP-005', title:'Factory Noise After Hours — Gaborone West', category:'Environment', status:'In Progress', priority:'Low', citizen:'Oratile Kgosi', citizenId:'U005', assignedTo:'Officer Mpho', ward:'Ward 14', date:'2026-03-19', description:'Industrial factory on plot 4892 is operating heavy machinery well past 22:00, violating municipal noise by-laws.', attachments:[], history:[{action:'Submitted',by:'Oratile Kgosi',date:'2026-03-19 23:10',note:''},{action:'Status → In Progress',by:'Officer Mpho',date:'2026-03-21 09:00',note:'Environmental compliance officer assigned. Night-time inspection to be conducted.'}] },
+  { id:'CMP-006', title:'Collapsed Main Drainage — Phase 2', category:'Infrastructure', status:'Resolved', priority:'High', citizen:'Kagiso Sithole', citizenId:'U006', assignedTo:'Officer Kgosi', ward:'Ward 2', date:'2026-03-05', description:'Primary drainage channel has collapsed, causing flash flooding in the residential area during rains.', attachments:['drain_photo.jpg'], history:[{action:'Submitted',by:'Kagiso Sithole',date:'2026-03-05 08:30',note:''},{action:'Status → In Progress',by:'Officer Kgosi',date:'2026-03-06 07:00',note:'Emergency works team deployed.'},{action:'Status → Resolved',by:'Officer Kgosi',date:'2026-03-09 15:00',note:'Drainage repaired and reinforced. Area cleared and sanitized.'}] },
+  { id:'CMP-007', title:'Stray Cattle Blocking Old Lobatse Road', category:'Public Safety', status:'Pending', priority:'Medium', citizen:'Boitumelo Sefako', citizenId:'U007', assignedTo:null, ward:'Ward 18', date:'2026-03-22', description:'Large herd of stray cattle repeatedly blocking the main road, causing traffic hazards and two near-accidents this week.', attachments:[], history:[{action:'Submitted',by:'Boitumelo Sefako',date:'2026-03-22 10:00',note:'Third time this week.'}] },
+  { id:'CMP-008', title:'Raw Sewage Overflow — Tlokweng Road', category:'Utilities', status:'In Progress', priority:'High', citizen:'Dineo Molefe', citizenId:'U008', assignedTo:'Officer Kgosi', ward:'Ward 5', date:'2026-03-21', description:'Sewage manhole has been overflowing for 2 days, causing serious health risk and foul smell in the area.', attachments:['sewage.jpg'], history:[{action:'Submitted',by:'Dineo Molefe',date:'2026-03-21 06:45',note:'Health hazard — sewage on public pavement.'},{action:'Status → In Progress',by:'Officer Kgosi',date:'2026-03-21 09:30',note:'Waste management team deployed. Cordoning area for public safety.'}] },
+];
+
+const SEED_LICENSES = [
+  { id:'LIC-001', type:'Business License', applicant:'Amara Dube', citizenId:'U001', businessName:'Dube General Trading', businessType:'Retail', status:'Approved', date:'2026-03-01', reviewedBy:'Admin Refilwe', notes:'All documents verified. No outstanding levies.', docs:['national_id.pdf','business_plan.pdf','lease_agreement.pdf'], history:[{action:'Submitted',date:'2026-03-01',by:'Amara Dube'},{action:'Under Review',date:'2026-03-03',by:'Officer Kgosi'},{action:'Approved',date:'2026-03-06',by:'Admin Refilwe',note:'All documents verified and approved.'}] },
+  { id:'LIC-002', type:'Food Handler Permit', applicant:'Thabo Modise', citizenId:'U002', businessName:"Thabo's Kitchen & Catering", businessType:'Food & Beverage', status:'Under Review', date:'2026-03-12', reviewedBy:null, notes:'', docs:['national_id.pdf','health_certificate.pdf'], history:[{action:'Submitted',date:'2026-03-12',by:'Thabo Modise'},{action:'Under Review',date:'2026-03-14',by:'Officer Mpho',note:'Documents received. Health inspection scheduled for March 25.'}] },
+  { id:'LIC-003', type:'Building Permit', applicant:'Tau Constructions Ltd', citizenId:'U003', businessName:'Tau Constructions Ltd', businessType:'Construction', status:'Submitted', date:'2026-03-21', reviewedBy:null, notes:'', docs:['architectural_drawings.pdf','environmental_clearance.pdf','engineer_certificate.pdf'], history:[{action:'Submitted',date:'2026-03-21',by:'Lesedi Tau'}] },
+  { id:'LIC-004', type:'Trade License', applicant:'Naledi Setlhare', citizenId:'U004', businessName:'Setlhare Imports & Exports', businessType:'Wholesale/Trade', status:'Rejected', date:'2026-03-08', reviewedBy:'Admin Refilwe', notes:'Missing trade certificate and BURS clearance.', docs:['national_id.pdf'], history:[{action:'Submitted',date:'2026-03-08',by:'Naledi Setlhare'},{action:'Under Review',date:'2026-03-10',by:'Admin Refilwe'},{action:'Rejected',date:'2026-03-12',by:'Admin Refilwe',note:'Application incomplete. Missing: BURS Tax Clearance, Trade Certificate. Please reapply with complete documentation.'}] },
+  { id:'LIC-005', type:'Liquor License', applicant:'Oratile Kgosi', citizenId:'U005', businessName:'Oratile Bar & Lounge', businessType:'Hospitality', status:'Under Review', date:'2026-03-17', reviewedBy:'Officer Mpho', notes:'', docs:['national_id.pdf','premises_plan.pdf','police_clearance.pdf'], history:[{action:'Submitted',date:'2026-03-17',by:'Oratile Kgosi'},{action:'Under Review',date:'2026-03-19',by:'Officer Mpho',note:'Liquor board consultation in progress. Site inspection scheduled.'}] },
+];
+
+const MOCK_USERS = [
+  { id:'U001', name:'Amara Dube', email:'amara.dube@mail.bw', role:'Citizen', status:'Active', joined:'2026-01-15', complaints:3, phone:'+267 71 234 567', ward:'Ward 11' },
+  { id:'U002', name:'Thabo Modise', email:'thabo.modise@mail.bw', role:'Citizen', status:'Active', joined:'2026-02-20', complaints:1, phone:'+267 72 345 678', ward:'Ward 3' },
+  { id:'U003', name:'Lesedi Tau', email:'lesedi.tau@mail.bw', role:'Citizen', status:'Active', joined:'2025-12-05', complaints:1, phone:'+267 73 456 789', ward:'Ward 6' },
+  { id:'U004', name:'Naledi Setlhare', email:'naledi@mail.bw', role:'Citizen', status:'Inactive', joined:'2025-11-10', complaints:1, phone:'+267 74 567 890', ward:'Ward 9' },
+  { id:'U005', name:'Officer Kgosi', email:'kgosi@bocra.bw', role:'Officer', status:'Active', joined:'2025-08-10', complaints:0, phone:'+267 75 111 222', ward:'All' },
+  { id:'U006', name:'Officer Mpho', email:'mpho@bocra.bw', role:'Officer', status:'Active', joined:'2025-09-01', complaints:0, phone:'+267 75 333 444', ward:'All' },
+  { id:'U007', name:'Admin Refilwe', email:'admin@bocra.bw', role:'Admin', status:'Active', joined:'2025-01-01', complaints:0, phone:'+267 75 999 000', ward:'All' },
+  { id:'U008', name:'Boitumelo Sefako', email:'boi@mail.bw', role:'Citizen', status:'Active', joined:'2026-03-01', complaints:1, phone:'+267 76 123 456', ward:'Ward 18' },
+];
+
+const MOCK_NOTIFS = [
+  { id:1, title:'CMP-002 Status Updated', desc:'Water supply complaint moved to In Progress', time:'2h ago', read:false, type:'complaint' },
+  { id:2, title:'LIC-001 Approved ✓', desc:'Your Business License has been approved', time:'1d ago', read:false, type:'license' },
+  { id:3, title:'New Complaint Assigned', desc:'CMP-008 assigned to your queue', time:'2d ago', read:true, type:'complaint' },
+  { id:4, title:'LIC-003 Received', desc:'New building permit application submitted', time:'3d ago', read:true, type:'license' },
+  { id:5, title:'CMP-005 Update', desc:'Factory noise complaint under investigation', time:'4d ago', read:true, type:'complaint' },
+];
+
+/* ═══════════════════════════════════════════════
+   MOCK API LAYER
+═══════════════════════════════════════════════ */
+const delay = ms => new Promise(r => setTimeout(r, ms));
+let _complaints = [...SEED_COMPLAINTS];
+let _licenses = [...SEED_LICENSES];
+
+const api = {
+  async getComplaints(params={}) {
+    await delay(320);
+    return [..._complaints];
+  },
+  async postComplaint(data) {
+    await delay(480);
+    const c = { ...data, id:`CMP-00${_complaints.length+1}`, status:'Pending', priority:'Medium', assignedTo:null, date:new Date().toISOString().slice(0,10), attachments:data.attachments||[], history:[{action:'Submitted',by:data.citizen,date:new Date().toLocaleString(),note:'Submitted via online portal.'}] };
+    _complaints.unshift(c);
+    return c;
+  },
+  async updateComplaint(id, updates) {
+    await delay(350);
+    const idx = _complaints.findIndex(c=>c.id===id);
+    if(idx>=0) _complaints[idx] = {..._complaints[idx], ...updates};
+    return _complaints[idx];
+  },
+  async getLicenses(params={}) {
+    await delay(320);
+    return [..._licenses];
+  },
+  async postLicense(data) {
+    await delay(480);
+    const l = { ...data, id:`LIC-00${_licenses.length+1}`, status:'Submitted', date:new Date().toISOString().slice(0,10), reviewedBy:null, notes:'', history:[{action:'Submitted',date:new Date().toISOString().slice(0,10),by:data.applicant}] };
+    _licenses.unshift(l);
+    return l;
+  },
+  async updateLicense(id, updates) {
+    await delay(350);
+    const idx = _licenses.findIndex(l=>l.id===id);
+    if(idx>=0) _licenses[idx] = {..._licenses[idx], ...updates};
+    return _licenses[idx];
+  },
+  async getDashboardStats() {
+    await delay(420);
+    const c = _complaints;
+    const l = _licenses;
+    const pending = c.filter(x=>x.status==='Pending').length;
+    const inProg = c.filter(x=>x.status==='In Progress').length;
+    const resolved = c.filter(x=>x.status==='Resolved').length;
+    return {
+      totalComplaints:c.length, pending, inProgress:inProg, resolved,
+      resolutionRate: c.length ? Math.round(resolved/c.length*100) : 0,
+      totalLicenses:l.length,
+      licApproved:l.filter(x=>x.status==='Approved').length,
+      licRejected:l.filter(x=>x.status==='Rejected').length,
+      licReview:l.filter(x=>x.status==='Under Review').length,
+      licSubmitted:l.filter(x=>x.status==='Submitted').length,
+      monthlyTrend:[
+        {month:'Oct',complaints:12,resolved:9,licenses:4},{month:'Nov',complaints:18,resolved:14,licenses:6},
+        {month:'Dec',complaints:10,resolved:8,licenses:3},{month:'Jan',complaints:22,resolved:17,licenses:8},
+        {month:'Feb',complaints:19,resolved:16,licenses:5},{month:'Mar',complaints:c.length,resolved,licenses:l.length},
+      ],
+      byCat:['Infrastructure','Utilities','Environment','Public Safety','Other'].map(name=>({name,value:c.filter(x=>x.category===name||(!['Infrastructure','Utilities','Environment','Public Safety'].includes(x.category)&&name==='Other')).length})).filter(x=>x.value>0),
+      byWard:[...new Set(c.map(x=>x.ward))].slice(0,6).map(w=>({ward:w,count:c.filter(x=>x.ward===w).length})),
+      avgResolutionDays: 3.2, activeOfficers:2, openCases: pending + inProg,
+    };
+  },
+};
+
+/* ═══════════════════════════════════════════════
+   CONTEXT
+═══════════════════════════════════════════════ */
+const Ctx = createContext(null);
+const useCtx = () => useContext(Ctx);
+
+/* ═══════════════════════════════════════════════
+   SMALL COMPONENTS
+═══════════════════════════════════════════════ */
+function Av({ name='?', size=32 }) {
+  const initials = (name||'?').split(' ').map(n=>n[0]).join('').toUpperCase().slice(0,2);
+  const hue = (name||'').split('').reduce((a,c)=>a+c.charCodeAt(0),0) % 360;
+  const bg = `hsl(${hue},45%,55%)`;
+  return <div className="av" style={{width:size,height:size,background:bg,color:'#fff',fontSize:size*.37}}>{initials}</div>;
+}
+
+function Spinner({ dark }) {
+  return <div className={`spin${dark?' spin-dark':''}`}></div>;
+}
+
+function Badge({ status }) {
+  const m = {'Pending':'pending','In Progress':'progress','Resolved':'resolved','Submitted':'submitted','Under Review':'review','Approved':'approved','Rejected':'rejected'};
+  return <span className={`badge b-${m[status]||'pending'}`}><span className="badge-dot"></span>{status}</span>;
+}
+
+function Prio({ level }) {
+  const m = {'High':'high','Medium':'med','Low':'low'};
+  return <span className={`prio p-${m[level]||'low'}`}>{level}</span>;
+}
+
+function RBadge({ role }) {
+  const m = {Admin:'rb-admin',Officer:'rb-officer',Citizen:'rb-citizen'};
+  return <span className={`rbadge ${m[role]||''}`}>{role}</span>;
+}
+
+function ProgBar({ pct, color='var(--gold)' }) {
+  return <div className="progress"><div className="progress-fill" style={{width:`${pct}%`,background:color}}></div></div>;
+}
+
+function Toast({ toasts }) {
+  return (
+    <div className="toast-wrap">
+      {toasts.map(t=>(
+        <div key={t.id} className={`toast t-${t.type||'ok'}`}>
+          <span>{t.type==='err'?'✕':t.type==='ok'?'✓':'ℹ'}</span>
+          {t.msg}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════
+   LOGIN
+═══════════════════════════════════════════════ */
+const DEMO_USERS = {
+  Citizen:  { name:'Amara Dube',     email:'citizen@bocra.bw',  citizenId:'U001' },
+  Officer:  { name:'Officer Kgosi',  email:'officer@bocra.bw',  citizenId:'U005' },
+  Admin:    { name:'Admin Refilwe',  email:'admin@bocra.bw',    citizenId:'U007' },
+};
+
+function Login({ onLogin }) {
+  const [role, setRole] = useState('Citizen');
+  const [email, setEmail] = useState('');
+  const [pass, setPass] = useState('');
+  const [busy, setBusy] = useState(false);
+  const roles = [{name:'Citizen',icon:'👤'},{name:'Officer',icon:'🛡'},{name:'Admin',icon:'⚡'}];
+
+  const handle = async () => {
+    if (!email.trim() || !pass.trim()) return;
+    setBusy(true);
+    await delay(600);
+    onLogin({ ...DEMO_USERS[role], role });
+    setBusy(false);
+  };
+
+  return (
+    <div className="login-root">
+      <div className="login-bg"></div>
+      <div className="login-card">
+        <div className="login-logo">Botswana Communications Regulatory Authority<em></em></div>
+        <div className="login-tagline">Government Services Management Platform · Botswana</div>
+        <div className="mb3 text-sm text-muted" style={{color:'rgba(210,205,230,.5)'}}>Select your role to continue</div>
+        <div className="role-grid">
+          {roles.map(r=>(
+            <div key={r.name} className={`role-btn${role===r.name?' sel':''}`} onClick={()=>setRole(r.name)}>
+              <div className="role-icon">{r.icon}</div>
+              <div className="role-name" style={{color:role===r.name?'var(--gold)':'rgba(232,228,244,.8)'}}>{r.name}</div>
+            </div>
+          ))}
+        </div>
+        <div className="fg">
+          <label className="login-label">Email Address</label>
+          <input className="login-input" type="email" placeholder={DEMO_USERS[role].email} value={email} onChange={e=>setEmail(e.target.value)} onKeyDown={e=>e.key==='Enter'&&handle()} />
+        </div>
+        <div className="fg" style={{marginBottom:22}}>
+          <label className="login-label">Password</label>
+          <input className="login-input" type="password" placeholder="Enter your password" value={pass} onChange={e=>setPass(e.target.value)} onKeyDown={e=>e.key==='Enter'&&handle()} />
+        </div>
+        <button className="btn btn-gold" style={{width:'100%',justifyContent:'center',padding:'11px'}} onClick={handle} disabled={busy}>
+          {busy ? <><Spinner/> Signing in...</> : `Sign in as ${role}`}
+        </button>
+        <div style={{marginTop:14,textAlign:'center',fontSize:11.5,color:'rgba(210,205,230,.3)'}}>
+           Enter any email & password · Role controls access
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════
+   SIDEBAR
+═══════════════════════════════════════════════ */
+function Sidebar({ user, page, setPage, slim, mobOpen }) {
+  const NAV = [
+    {id:'dashboard',icon:'▦',label:'Dashboard',roles:['Citizen','Officer','Admin']},
+    {id:'complaints',icon:'⊟',label:'Complaints',roles:['Citizen','Officer','Admin'],badge:_complaints.filter(c=>c.status==='Pending').length},
+    {id:'licensing',icon:'◈',label:'Licensing',roles:['Citizen','Officer','Admin']},
+    {id:'analytics',icon:'◎',label:'Analytics',roles:['Officer','Admin']},
+    {id:'activity',icon:'◌',label:'Activity Feed',roles:['Officer','Admin']},
+    {id:'users',icon:'◉',label:'Users',roles:['Admin']},
+    {id:'settings',icon:'⚙',label:'Settings',roles:['Citizen','Officer','Admin']},
+  ].filter(n=>n.roles.includes(user.role));
+  return (
+    <nav className={`sidebar${slim?' slim':''}${mobOpen?' mob-open':''}`}>
+      <div className="sb-logo">
+        <div className="sb-logo-mark">Civic<em>OS</em></div>
+        <div className="sb-logo-sub">Gov Services Portal</div>
+      </div>
+      <div className="sb-nav">
+        {!slim && <div className="sb-section">Navigation</div>}
+        {NAV.map(item=>(
+          <div key={item.id} className={`nav-item${page===item.id?' on':''}`} onClick={()=>setPage(item.id)}>
+            <span className="nav-icon">{item.icon}</span>
+            <span className="nav-label">{item.label}</span>
+            {item.badge>0&&<span className="nav-badge">{item.badge}</span>}
+          </div>
+        ))}
+      </div>
+      <div className="sb-footer">
+        <div className="sb-user">
+          <Av name={user.name} size={34}/>
+          <div className="user-meta">
+            <div className="user-name">{user.name}</div>
+            <div className="user-role-txt"><RBadge role={user.role}/></div>
+          </div>
+        </div>
+      </div>
+    </nav>
+  );
+}
+
+/* ═══════════════════════════════════════════════
+   TOPBAR
+═══════════════════════════════════════════════ */
+const PAGE_META = {
+  dashboard:{label:'Dashboard',crumb:'Overview & Stats'},
+  complaints:{label:'Complaints',crumb:'Manage citizen complaints'},
+  licensing:{label:'Licensing',crumb:'Application management'},
+  analytics:{label:'Analytics',crumb:'Performance insights'},
+  activity:{label:'Activity Feed',crumb:'System activity log'},
+  users:{label:'User Management',crumb:'Accounts & roles'},
+  settings:{label:'Settings',crumb:'Profile & preferences'},
+};
+
+function Topbar({ user, page, onToggle, onLogout, dark, setDark }) {
+  const [showN, setShowN] = useState(false);
+  const [notifs, setNotifs] = useState(MOCK_NOTIFS);
+  const unread = notifs.filter(n=>!n.read).length;
+  const ref = useRef();
+  useEffect(()=>{
+    const fn = e => { if(ref.current&&!ref.current.contains(e.target)) setShowN(false); };
+    document.addEventListener('mousedown',fn);
+    return()=>document.removeEventListener('mousedown',fn);
+  },[]);
+  const meta = PAGE_META[page]||{label:'CivicOS',crumb:''};
+  return (
+    <div className="topbar">
+      <button className="tb-toggle" onClick={onToggle}>☰</button>
+      <div className="tb-title">
+        <div className="tb-page">{meta.label}</div>
+        <div className="tb-crumb">{meta.crumb}</div>
+      </div>
+      <div className="tb-actions">
+        <button className="icon-btn" onClick={()=>setDark(!dark)} title="Toggle theme">{dark?'☀':'◑'}</button>
+        <div style={{position:'relative'}} ref={ref}>
+          <button className="icon-btn" onClick={()=>setShowN(!showN)} style={{position:'relative'}}>
+            ◫{unread>0&&<span className="notif-dot"></span>}
+          </button>
+          {showN && (
+            <div className="notif-pane">
+              <div className="np-head">
+                <span className="np-title">Notifications {unread>0&&<span style={{color:'var(--err)',fontSize:12}}>({unread} new)</span>}</span>
+                <button className="btn btn-ghost btn-xs" onClick={()=>setNotifs(ns=>ns.map(n=>({...n,read:true})))}>Mark all read</button>
+              </div>
+              {notifs.map(n=>(
+                <div key={n.id} className={`notif-row${n.read?'':' unread'}`} onClick={()=>setNotifs(ns=>ns.map(x=>x.id===n.id?{...x,read:true}:x))}>
+                  <div className="nr-title">{n.title}</div>
+                  <div className="nr-desc">{n.desc}</div>
+                  <div className="nr-time">{n.time}</div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+        <div className="flex items-c gap2" style={{marginLeft:4}}>
+          <Av name={user.name} size={32}/>
+          <button className="btn btn-ghost btn-sm" onClick={onLogout}>Sign out</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════
+   DASHBOARD
+═══════════════════════════════════════════════ */
+function Dashboard({ user }) {
+  const [stats, setStats] = useState(null);
+  const [loading, setLoading] = useState(true);
+  useEffect(()=>{ api.getDashboardStats().then(s=>{setStats(s);setLoading(false);}); },[]);
+  if(loading) return <div className="loading-row"><Spinner dark/>Loading dashboard data…</div>;
+  const PIE_COLORS = ['#e7c46e','#2db8a8','#2060cc','#22975c','#c47820','#c43030'];
+  return (
+    <div>
+      <div className="ph">
+        <div className="ph-left">
+          <div className="ph-title">Good {new Date().getHours()<12?'morning':'afternoon'}, {user.name.split(' ')[0]} 👋</div>
+          <div className="ph-sub">Here's what's happening across the system today</div>
+        </div>
+        <div className="ph-right">
+          <span className="chip">📅 {new Date().toLocaleDateString('en-BW',{day:'numeric',month:'long',year:'numeric'})}</span>
+        </div>
+      </div>
+
+      {/* KPI Row */}
+      <div className="stats-row">
+        {[
+          {label:'Total Complaints',val:stats.totalComplaints,foot:`${stats.openCases} still open`,color:'#e7c46e',icon:'⊟'},
+          {label:'Pending',val:stats.pending,foot:`${stats.inProgress} in progress`,color:'#c47820',icon:'⏳'},
+          {label:'Resolved',val:stats.resolved,foot:`${stats.resolutionRate}% resolution rate`,color:'#22975c',icon:'✓'},
+          {label:'License Applications',val:stats.totalLicenses,foot:`${stats.licApproved} approved`,color:'#2060cc',icon:'◈'},
+        ].map((s,i)=>(
+          <div key={i} className="stat">
+            <div className="stat-glow" style={{background:s.color}}></div>
+            <div className="stat-label">{s.label}</div>
+            <div className="stat-val">{s.val}</div>
+            <div className="stat-footer"><span style={{fontSize:18}}>{s.icon}</span> {s.foot}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* Charts Row 1 */}
+      <div className="charts-grid">
+        <div className="card">
+          <div className="chart-title">Monthly Trend</div>
+          <div className="chart-sub mb3">Complaints received vs resolved</div>
+          <Recharts.ResponsiveContainer width="100%" height={210}>
+            <Recharts.BarChart data={stats.monthlyTrend} margin={{top:0,right:0,left:-22,bottom:0}} barGap={3}>
+              <Recharts.CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false}/>
+              <Recharts.XAxis dataKey="month" tick={{fontSize:11,fill:'var(--text2)'}} axisLine={false} tickLine={false}/>
+              <Recharts.YAxis tick={{fontSize:11,fill:'var(--text2)'}} axisLine={false} tickLine={false}/>
+              <Recharts.Tooltip contentStyle={{background:'var(--surface)',border:'1px solid var(--border)',borderRadius:8,fontSize:12,boxShadow:'var(--sh2)'}}/>
+              <Recharts.Legend iconType="circle" iconSize={8} wrapperStyle={{fontSize:12}}/>
+              <Recharts.Bar dataKey="complaints" name="Received" fill="#e7c46e" radius={[4,4,0,0]}/>
+              <Recharts.Bar dataKey="resolved" name="Resolved" fill="#22975c" radius={[4,4,0,0]}/>
+            </Recharts.BarChart>
+          </Recharts.ResponsiveContainer>
+        </div>
+        <div className="card">
+          <div className="chart-title">Complaints by Category</div>
+          <div className="chart-sub mb3">Distribution across service areas</div>
+          <Recharts.ResponsiveContainer width="100%" height={210}>
+            <Recharts.PieChart>
+              <Recharts.Pie data={stats.byCat} cx="50%" cy="50%" innerRadius={55} outerRadius={85} paddingAngle={3} dataKey="value">
+                {stats.byCat.map((_, i) => <Recharts.Cell key={i} fill={PIE_COLORS[i%PIE_COLORS.length]}/>)}
+              </Recharts.Pie>
+              <Recharts.Tooltip contentStyle={{background:'var(--surface)',border:'1px solid var(--border)',borderRadius:8,fontSize:12}}/>
+              <Recharts.Legend iconType="circle" iconSize={8} wrapperStyle={{fontSize:12}}/>
+            </Recharts.PieChart>
+          </Recharts.ResponsiveContainer>
+        </div>
+      </div>
+
+      {/* Charts Row 2 */}
+      <div className="charts-grid">
+        <div className="card">
+          <div className="chart-title">Performance Metrics</div>
+          <div className="chart-sub mb4">Key resolution indicators</div>
+          {[
+            {label:'Complaint Resolution Rate',pct:stats.resolutionRate,color:'var(--ok)',val:`${stats.resolutionRate}%`},
+            {label:'License Approval Rate',pct:stats.totalLicenses?Math.round(stats.licApproved/stats.totalLicenses*100):0,color:'var(--gold-dark)',val:`${stats.totalLicenses?Math.round(stats.licApproved/stats.totalLicenses*100):0}%`},
+            {label:'Cases In Progress',pct:stats.totalComplaints?Math.round(stats.inProgress/stats.totalComplaints*100):0,color:'var(--info)',val:`${stats.inProgress} cases`},
+          ].map((m,i)=>(
+            <div key={i} className="mb3">
+              <div className="flex justify-b mb1"><span className="text-sm text-muted">{m.label}</span><span className="text-sm fw7 text-gold">{m.val}</span></div>
+              <ProgBar pct={m.pct} color={m.color}/>
+            </div>
+          ))}
+          <div className="divider"></div>
+          <div className="grid2">
+            {[
+              {label:'Avg. Resolution',val:`${stats.avgResolutionDays}d`},{label:'Active Officers',val:stats.activeOfficers},
+            ].map((kv,i)=>(
+              <div key={i} className="card card-sm card-flat" style={{background:'var(--surface2)'}}>
+                <div className="text-xs text-muted mb1">{kv.label}</div>
+                <div style={{fontFamily:'Fraunces,serif',fontSize:28,fontWeight:300}}>{kv.val}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+        <div className="card">
+          <div className="chart-title">License Pipeline</div>
+          <div className="chart-sub mb3">Applications by status</div>
+          <Recharts.ResponsiveContainer width="100%" height={160}>
+            <Recharts.BarChart data={[
+              {name:'Submitted',v:stats.licSubmitted},{name:'Review',v:stats.licReview},
+              {name:'Approved',v:stats.licApproved},{name:'Rejected',v:stats.licRejected},
+            ]} layout="vertical" margin={{left:10,right:10}}>
+              <Recharts.CartesianGrid strokeDasharray="3 3" stroke="var(--border)" horizontal={false}/>
+              <Recharts.XAxis type="number" tick={{fontSize:11,fill:'var(--text2)'}} axisLine={false} tickLine={false}/>
+              <Recharts.YAxis type="category" dataKey="name" tick={{fontSize:11,fill:'var(--text2)'}} axisLine={false} tickLine={false}/>
+              <Recharts.Tooltip contentStyle={{background:'var(--surface)',border:'1px solid var(--border)',borderRadius:8,fontSize:12}}/>
+              <Recharts.Bar dataKey="v" name="Applications" radius={[0,4,4,0]}>
+                {[{fill:'#2060cc'},{fill:'#c47820'},{fill:'#22975c'},{fill:'#c43030'}].map((e,i)=><Recharts.Cell key={i} {...e}/>)}
+              </Recharts.Bar>
+            </Recharts.BarChart>
+          </Recharts.ResponsiveContainer>
+          <div className="divider"></div>
+          <div className="chart-title" style={{fontSize:14,marginBottom:8}}>Complaints by Ward</div>
+          {stats.byWard.map((w,i)=>(
+            <div key={i} className="flex items-c gap3 mb2">
+              <span className="text-sm text-muted" style={{minWidth:60,fontSize:11}}>{w.ward}</span>
+              <div style={{flex:1}}><ProgBar pct={Math.round(w.count/_complaints.length*100)} color={PIE_COLORS[i%PIE_COLORS.length]}/></div>
+              <span className="text-sm fw7" style={{minWidth:16,textAlign:'right'}}>{w.count}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Recent Complaints */}
+      <div className="card" style={{marginTop:16}}>
+        <div className="flex justify-b items-c mb3">
+          <div className="chart-title" style={{marginBottom:0}}>Recent Complaints</div>
+          <span className="text-sm text-muted">Latest submissions</span>
+        </div>
+        <div className="tbl-wrap" style={{border:'none',borderRadius:0}}>
+          <table>
+            <thead><tr><th>ID</th><th>Title</th><th>Status</th><th>Priority</th><th>Submitted</th></tr></thead>
+            <tbody>
+              {_complaints.slice(0,5).map(c=>(
+                <tr key={c.id}>
+                  <td><span className="mono text-xs text-gold">{c.id}</span></td>
+                  <td className="fw6" style={{maxWidth:260,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{c.title}</td>
+                  <td><Badge status={c.status}/></td>
+                  <td><Prio level={c.priority}/></td>
+                  <td className="mono text-xs text-muted">{c.date}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════
+   COMPLAINTS PAGE
+═══════════════════════════════════════════════ */
+function Complaints({ user }) {
+  const { toast } = useCtx();
+  const [list, setList] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState('');
+  const [statusF, setStatusF] = useState('All');
+  const [catF, setCatF] = useState('All');
+  const [prioF, setPrioF] = useState('All');
+  const [pg, setPg] = useState(1);
+  const [showForm, setShowForm] = useState(false);
+  const [detail, setDetail] = useState(null);
+  const PER = 6;
+
+  const load = useCallback(()=>{ api.getComplaints().then(d=>{setList(d);setLoading(false);}); },[]);
+  useEffect(()=>{ load(); },[]);
+
+  const filtered = useMemo(()=>{
+    return list.filter(c=>{
+      const q=search.toLowerCase();
+      const mQ=!q||c.title.toLowerCase().includes(q)||c.id.toLowerCase().includes(q)||c.citizen.toLowerCase().includes(q)||c.ward?.toLowerCase().includes(q)||c.category.toLowerCase().includes(q);
+      const mS=statusF==='All'||c.status===statusF;
+      const mC=catF==='All'||c.category===catF;
+      const mP=prioF==='All'||c.priority===prioF;
+      if(user.role==='Citizen') return mQ&&mS&&mC&&mP&&c.citizenId===user.citizenId;
+      if(user.role==='Officer') return mQ&&mS&&mC&&mP;
+      return mQ&&mS&&mC&&mP;
+    });
+  },[list,search,statusF,catF,prioF,user]);
+
+  const pages=Math.ceil(filtered.length/PER);
+  const paged=filtered.slice((pg-1)*PER,pg*PER);
+
+  const handleSave=async(data)=>{
+    const c=await api.postComplaint({...data,citizen:user.name,citizenId:user.citizenId,ward:'Ward 11'});
+    toast({msg:'Complaint submitted successfully',type:'ok'});
+    load(); setShowForm(false);
+  };
+  const handleUpdate=async(id,updates,histNote)=>{
+    const existing=list.find(c=>c.id===id);
+    const newH=[...(existing?.history||[]),{action:updates.histAction||'Updated',by:user.name,date:new Date().toLocaleString(),note:histNote||''}];
+    await api.updateComplaint(id,{...updates,history:newH});
+    toast({msg:'Complaint updated',type:'ok'});
+    load();
+  };
+
+  return (
+    <div>
+      <div className="ph">
+        <div className="ph-left">
+          <div className="ph-title">Complaints</div>
+          <div className="ph-sub">{filtered.length} record{filtered.length!==1?'s':''} found</div>
+        </div>
+        <div className="ph-right">
+          <button className="btn btn-ghost btn-sm" onClick={load}>↺ Refresh</button>
+          {(user.role==='Citizen'||user.role==='Admin')&&<button className="btn btn-gold" onClick={()=>setShowForm(true)}>+ New Complaint</button>}
+        </div>
+      </div>
+
+      <div className="filter-bar">
+        <div className="search-wrap">
+          <span className="search-ico">⌕</span>
+          <input placeholder="Search by title, ID, citizen, ward…" value={search} onChange={e=>{setSearch(e.target.value);setPg(1);}}/>
+        </div>
+        <select className="fsel" value={statusF} onChange={e=>{setStatusF(e.target.value);setPg(1);}}>
+          {['All','Pending','In Progress','Resolved'].map(s=><option key={s}>{s}</option>)}
+        </select>
+        <select className="fsel" value={catF} onChange={e=>{setCatF(e.target.value);setPg(1);}}>
+          {['All','Infrastructure','Utilities','Environment','Public Safety','Other'].map(s=><option key={s}>{s}</option>)}
+        </select>
+        <select className="fsel" style={{minWidth:110}} value={prioF} onChange={e=>{setPrioF(e.target.value);setPg(1);}}>
+          {['All','High','Medium','Low'].map(s=><option key={s}>{s}</option>)}
+        </select>
+      </div>
+
+      {loading ? <div className="loading-row"><Spinner dark/>Loading complaints…</div> : (
+        <div className="tbl-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>ID</th><th>Title</th><th>Category</th><th>Status</th><th>Priority</th>
+                {user.role!=='Citizen'&&<th>Citizen</th>}<th>Ward</th><th>Date</th><th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {paged.length===0 ? (
+                <tr><td colSpan={9}><div className="empty"><div className="empty-ico">⊟</div><div className="empty-txt">No complaints found</div><div className="empty-sub">Try adjusting your search or filters</div></div></td></tr>
+              ) : paged.map(c=>(
+                <tr key={c.id}>
+                  <td><span className="mono text-xs text-gold">{c.id}</span></td>
+                  <td style={{maxWidth:220}}>
+                    <div className="fw6" style={{overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{c.title}</div>
+                    {c.attachments?.length>0&&<span className="text-xs text-muted">📎 {c.attachments.length} file{c.attachments.length>1?'s':''}</span>}
+                  </td>
+                  <td><span className="tag">{c.category}</span></td>
+                  <td><Badge status={c.status}/></td>
+                  <td><Prio level={c.priority}/></td>
+                  {user.role!=='Citizen'&&<td><div className="flex items-c gap2"><Av name={c.citizen} size={24}/><span className="text-sm">{c.citizen}</span></div></td>}
+                  <td className="text-sm text-muted">{c.ward}</td>
+                  <td className="mono text-xs text-muted">{c.date}</td>
+                  <td><button className="btn btn-ghost btn-sm" onClick={()=>setDetail(c)}>View →</button></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          {pages>1&&(
+            <div className="pag">
+              <div className="pag-info">Showing {(pg-1)*PER+1}–{Math.min(pg*PER,filtered.length)} of {filtered.length}</div>
+              <div className="pag-btns">
+                <button className="pb" disabled={pg===1} onClick={()=>setPg(p=>p-1)}>‹</button>
+                {Array.from({length:pages},(_,i)=><button key={i} className={`pb${pg===i+1?' on':''}`} onClick={()=>setPg(i+1)}>{i+1}</button>)}
+                <button className="pb" disabled={pg===pages} onClick={()=>setPg(p=>p+1)}>›</button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {showForm&&<ComplaintForm user={user} onClose={()=>setShowForm(false)} onSave={handleSave}/>}
+      {detail&&<ComplaintDetail complaint={detail} user={user} onClose={()=>setDetail(null)} onUpdate={handleUpdate} complaints={list}/>}
+    </div>
+  );
+}
+
+function ComplaintForm({ user, onClose, onSave }) {
+  const [f, setF] = useState({title:'',category:'Infrastructure',priority:'Medium',ward:'',description:'',location:''});
+  const [files, setFiles] = useState([]);
+  const [saving, setSaving] = useState(false);
+  const [errs, setErrs] = useState({});
+  const [drag, setDrag] = useState(false);
+
+  const validate=()=>{
+    const e={};
+    if(!f.title.trim()) e.title='Title is required';
+    if(!f.description.trim()) e.description='Description is required';
+    if(f.description.trim().length<20) e.description='Please provide more detail (at least 20 characters)';
+    return e;
+  };
+  const handle=async()=>{
+    const e=validate(); if(Object.keys(e).length){setErrs(e);return;}
+    setSaving(true);
+    await onSave({...f,attachments:files.map(f=>f.name)});
+    setSaving(false);
+  };
+  const addFile=file=>{ if(file&&files.length<5) setFiles(fs=>[...fs,file]); };
+  const removeFile=name=>setFiles(fs=>fs.filter(f=>f.name!==name));
+
+  return (
+    <div className="overlay" onClick={onClose}>
+      <div className="modal" onClick={e=>e.stopPropagation()}>
+        <div className="mhead">
+          <div className="mtitle">Submit a Complaint</div>
+          <button className="close-x" onClick={onClose}>✕</button>
+        </div>
+        <div className="mbody">
+          <div className="fg">
+            <label>Complaint Title *</label>
+            <input placeholder="Brief summary of the issue" value={f.title} className={errs.title?'err':''} onChange={e=>setF({...f,title:e.target.value})}/>
+            {errs.title&&<div className="emsg">{errs.title}</div>}
+          </div>
+          <div className="frow">
+            <div className="fg">
+              <label>Category *</label>
+              <select value={f.category} onChange={e=>setF({...f,category:e.target.value})}>
+                {['Infrastructure','Utilities','Environment','Public Safety','Other'].map(c=><option key={c}>{c}</option>)}
+              </select>
+            </div>
+            <div className="fg">
+              <label>Priority</label>
+              <select value={f.priority} onChange={e=>setF({...f,priority:e.target.value})}>
+                {['High','Medium','Low'].map(p=><option key={p}>{p}</option>)}
+              </select>
+            </div>
+          </div>
+          <div className="frow">
+            <div className="fg">
+              <label>Ward / Location</label>
+              <input placeholder="e.g. Ward 11, Block 6" value={f.ward} onChange={e=>setF({...f,ward:e.target.value})}/>
+            </div>
+            <div className="fg">
+              <label>Specific Address</label>
+              <input placeholder="Street, plot number…" value={f.location} onChange={e=>setF({...f,location:e.target.value})}/>
+            </div>
+          </div>
+          <div className="fg">
+            <label>Description *</label>
+            <textarea placeholder="Describe the issue in detail. Include: what the problem is, how long it has existed, how it affects you and others, and any relevant context." value={f.description} className={errs.description?'err':''} style={{minHeight:110}} onChange={e=>setF({...f,description:e.target.value})}/>
+            {errs.description&&<div className="emsg">{errs.description}</div>}
+            <div className="text-xs text-muted">{f.description.length} characters</div>
+          </div>
+          <div className="fg">
+            <label>Attachments <span className="lhint">(optional, max 5 files)</span></label>
+            <div className={`upzone${drag?' drag':''}`}
+              onDragOver={e=>{e.preventDefault();setDrag(true);}}
+              onDragLeave={()=>setDrag(false)}
+              onDrop={e=>{e.preventDefault();setDrag(false);[...e.dataTransfer.files].forEach(addFile);}}
+              onClick={()=>document.getElementById('cmp-file').click()}>
+              <input id="cmp-file" type="file" multiple style={{display:'none'}} onChange={e=>[...e.target.files].forEach(addFile)}/>
+              <div className="upzone-ico">📎</div>
+              <div className="upzone-txt">Drag & drop or click to upload</div>
+              <div className="upzone-hint">Photos, videos, documents · PNG, JPG, PDF up to 10MB each</div>
+            </div>
+            {files.length>0&&<div className="mt3">{files.map(file=><span key={file.name} className="file-chip" onClick={()=>removeFile(file.name)}>📄 {file.name} ✕</span>)}</div>}
+          </div>
+        </div>
+        <div className="mfoot">
+          <button className="btn btn-ghost" onClick={onClose}>Cancel</button>
+          <button className="btn btn-gold" onClick={handle} disabled={saving}>{saving?<><Spinner/>Submitting…</>:'Submit Complaint'}</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ComplaintDetail({ complaint, user, onClose, onUpdate, complaints }) {
+  const [status, setStatus] = useState(complaint.status);
+  const [priority, setPriority] = useState(complaint.priority);
+  const [assignTo, setAssignTo] = useState(complaint.assignedTo||'');
+  const [note, setNote] = useState('');
+  const [saving, setSaving] = useState(false);
+  const canEdit = user.role==='Officer'||user.role==='Admin';
+  const isChanged = status!==complaint.status||priority!==complaint.priority||assignTo!==(complaint.assignedTo||'');
+
+  const handle=async()=>{
+    setSaving(true);
+    const histAction = status!==complaint.status ? `Status → ${status}` : priority!==complaint.priority ? `Priority → ${priority}` : 'Updated';
+    await onUpdate(complaint.id,{status,priority,assignedTo:assignTo||null,histAction},note);
+    setSaving(false);
+    onClose();
+  };
+
+  // Related complaints (same category, different ID)
+  const related = complaints.filter(c=>c.category===complaint.category&&c.id!==complaint.id).slice(0,3);
+
+  return (
+    <div className="overlay" onClick={onClose}>
+      <div className="modal modal-lg" onClick={e=>e.stopPropagation()}>
+        <div className="mhead">
+          <div>
+            <div className="mtitle" style={{fontSize:17,lineHeight:1.2}}>{complaint.title}</div>
+            <div className="flex items-c gap2 mt1">
+              <span className="mono text-xs text-gold">{complaint.id}</span>
+              <span className="mono text-xs text-muted">·</span>
+              <span className="mono text-xs text-muted">{complaint.date}</span>
+            </div>
+          </div>
+          <button className="close-x" onClick={onClose}>✕</button>
+        </div>
+        <div className="mbody">
+          {/* Status bar */}
+          <div className="flex gap2 mb4" style={{flexWrap:'wrap'}}>
+            <Badge status={complaint.status}/>
+            <Prio level={complaint.priority}/>
+            <span className="tag">{complaint.category}</span>
+            {complaint.ward&&<span className="tag">📍 {complaint.ward}</span>}
+            {complaint.assignedTo&&<span className="tag">👤 {complaint.assignedTo}</span>}
+          </div>
+
+          {/* Description */}
+          <div className="card card-sm card-flat mb4" style={{background:'var(--surface2)'}}>
+            <div className="text-xs text-muted fw6 mb2" style={{letterSpacing:'.8px',textTransform:'uppercase'}}>Description</div>
+            <div style={{fontSize:13.5,lineHeight:1.7}}>{complaint.description}</div>
+          </div>
+
+          {/* Attachments */}
+          {complaint.attachments?.length>0&&(
+            <div className="mb4">
+              <div className="text-xs text-muted fw6 mb2" style={{letterSpacing:'.8px',textTransform:'uppercase'}}>Attachments ({complaint.attachments.length})</div>
+              <div>{complaint.attachments.map(a=><span key={a} className="file-chip" style={{cursor:'default'}}>📄 {a}</span>)}</div>
+            </div>
+          )}
+
+          {/* Details grid */}
+          {user.role!=='Citizen'&&(
+            <div className="detail-grid mb4">
+              <div className="card card-sm card-flat" style={{background:'var(--surface2)'}}>
+                <div className="text-xs text-muted fw6 mb2" style={{letterSpacing:'.8px',textTransform:'uppercase'}}>Citizen Details</div>
+                <div className="flex items-c gap2 mb2"><Av name={complaint.citizen} size={32}/><span className="fw6">{complaint.citizen}</span></div>
+                <div className="text-sm text-muted">ID: {complaint.citizenId}</div>
+              </div>
+              <div className="card card-sm card-flat" style={{background:'var(--surface2)'}}>
+                <div className="text-xs text-muted fw6 mb2" style={{letterSpacing:'.8px',textTransform:'uppercase'}}>Assignment</div>
+                {complaint.assignedTo ? <div className="flex items-c gap2 mb1"><Av name={complaint.assignedTo} size={28}/><span className="fw6 text-sm">{complaint.assignedTo}</span></div> : <div className="text-sm text-muted">Unassigned</div>}
+              </div>
+            </div>
+          )}
+
+          {/* Update form for officers/admins */}
+          {canEdit&&(
+            <div className="card card-sm mb4">
+              <div className="text-xs text-muted fw6 mb3" style={{letterSpacing:'.8px',textTransform:'uppercase'}}>Update Complaint</div>
+              <div className="frow">
+                <div className="fg" style={{marginBottom:0}}>
+                  <label>Status</label>
+                  <select value={status} onChange={e=>setStatus(e.target.value)}>
+                    {['Pending','In Progress','Resolved'].map(s=><option key={s}>{s}</option>)}
+                  </select>
+                </div>
+                <div className="fg" style={{marginBottom:0}}>
+                  <label>Priority</label>
+                  <select value={priority} onChange={e=>setPriority(e.target.value)}>
+                    {['High','Medium','Low'].map(p=><option key={p}>{p}</option>)}
+                  </select>
+                </div>
+              </div>
+              <div className="fg mt3">
+                <label>Assign To Officer</label>
+                <select value={assignTo} onChange={e=>setAssignTo(e.target.value)}>
+                  <option value="">— Unassigned —</option>
+                  {['Officer Kgosi','Officer Mpho'].map(o=><option key={o}>{o}</option>)}
+                </select>
+              </div>
+              <div className="fg mt3" style={{marginBottom:0}}>
+                <label>Update Note <span className="lhint">(optional)</span></label>
+                <textarea placeholder="Describe the action taken, next steps, or resolution details…" value={note} style={{minHeight:72}} onChange={e=>setNote(e.target.value)}/>
+              </div>
+              {(isChanged||note)&&(
+                <div className="flex justify-b items-c mt3">
+                  {status==='Resolved'&&<div className="ok-box" style={{flex:1,marginRight:8,padding:'8px 12px',fontSize:12}}>✓ This will mark the complaint as resolved</div>}
+                  <button className="btn btn-gold btn-sm" onClick={handle} disabled={saving}>{saving?<><Spinner/>Saving…</>:'Save Update'}</button>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Timeline */}
+          <div>
+            <div className="text-xs text-muted fw6 mb3" style={{letterSpacing:'.8px',textTransform:'uppercase'}}>Activity History ({complaint.history.length} events)</div>
+            <div className="tl">
+              {[...complaint.history].reverse().map((h,i)=>(
+                <div key={i} className="tl-item">
+                  <div className="tl-dot">{i===0?'★':'▪'}</div>
+                  <div className="tl-body">
+                    <div className="tl-title">{h.action}</div>
+                    <div className="tl-meta">{h.by} · {h.date}</div>
+                    {h.note&&<div className="tl-note">{h.note}</div>}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Related */}
+          {related.length>0&&(
+            <div>
+              <div className="divider"></div>
+              <div className="text-xs text-muted fw6 mb3" style={{letterSpacing:'.8px',textTransform:'uppercase'}}>Related — {complaint.category}</div>
+              {related.map(r=>(
+                <div key={r.id} className="activity-item">
+                  <div className="act-ico">⊟</div>
+                  <div className="act-body">
+                    <div className="act-txt fw6">{r.title}</div>
+                    <div className="act-time"><span className="mono">{r.id}</span> · <Badge status={r.status}/></div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════
+   LICENSING
+═══════════════════════════════════════════════ */
+function Licensing({ user }) {
+  const { toast } = useCtx();
+  const [list, setList] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState('');
+  const [statusF, setStatusF] = useState('All');
+  const [typeF, setTypeF] = useState('All');
+  const [pg, setPg] = useState(1);
+  const [showForm, setShowForm] = useState(false);
+  const [detail, setDetail] = useState(null);
+  const PER = 6;
+
+  const load=useCallback(()=>{ api.getLicenses().then(d=>{setList(d);setLoading(false);}); },[]);
+  useEffect(()=>{ load(); },[]);
+
+  const filtered=useMemo(()=>{
+    return list.filter(l=>{
+      const q=search.toLowerCase();
+      const mQ=!q||l.id.toLowerCase().includes(q)||l.type.toLowerCase().includes(q)||l.applicant.toLowerCase().includes(q)||l.businessName.toLowerCase().includes(q);
+      const mS=statusF==='All'||l.status===statusF;
+      const mT=typeF==='All'||l.type===typeF;
+      if(user.role==='Citizen') return mQ&&mS&&mT&&l.citizenId===user.citizenId;
+      return mQ&&mS&&mT;
+    });
+  },[list,search,statusF,typeF,user]);
+
+  const pages=Math.ceil(filtered.length/PER);
+  const paged=filtered.slice((pg-1)*PER,pg*PER);
+
+  const handleUpdate=async(id,updates,note)=>{
+    const existing=list.find(l=>l.id===id);
+    const newH=[...(existing?.history||[]),{action:updates.status,date:new Date().toISOString().slice(0,10),by:user.name,note:note||''}];
+    await api.updateLicense(id,{...updates,history:newH});
+    toast({msg:`Application ${updates.status.toLowerCase()}`,type:'ok'});
+    load(); setDetail(null);
+  };
+  const handleSave=async(data)=>{
+    await api.postLicense({...data,applicant:user.name,citizenId:user.citizenId});
+    toast({msg:'License application submitted',type:'ok'});
+    load(); setShowForm(false);
+  };
+
+  return (
+    <div>
+      <div className="ph">
+        <div className="ph-left">
+          <div className="ph-title">Licensing</div>
+          <div className="ph-sub">{filtered.length} application{filtered.length!==1?'s':''}</div>
+        </div>
+        <div className="ph-right">
+          <button className="btn btn-ghost btn-sm" onClick={load}>↺ Refresh</button>
+          {user.role==='Citizen'&&<button className="btn btn-gold" onClick={()=>setShowForm(true)}>+ New Application</button>}
+        </div>
+      </div>
+      <div className="filter-bar">
+        <div className="search-wrap"><span className="search-ico">⌕</span><input placeholder="Search by ID, type, applicant, business…" value={search} onChange={e=>{setSearch(e.target.value);setPg(1);}}/></div>
+        <select className="fsel" value={statusF} onChange={e=>{setStatusF(e.target.value);setPg(1);}}>
+          {['All','Submitted','Under Review','Approved','Rejected'].map(s=><option key={s}>{s}</option>)}
+        </select>
+        <select className="fsel" value={typeF} onChange={e=>{setTypeF(e.target.value);setPg(1);}}>
+          {['All','Business License','Food Handler Permit','Building Permit','Trade License','Liquor License'].map(t=><option key={t}>{t}</option>)}
+        </select>
+      </div>
+      {loading?<div className="loading-row"><Spinner dark/>Loading licenses…</div>:(
+        <div className="tbl-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>ID</th><th>License Type</th><th>Business</th>
+                {user.role!=='Citizen'&&<th>Applicant</th>}
+                <th>Status</th><th>Date</th><th>Documents</th><th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {paged.length===0?(
+                <tr><td colSpan={8}><div className="empty"><div className="empty-ico">◈</div><div className="empty-txt">No applications found</div></div></td></tr>
+              ):paged.map(l=>(
+                <tr key={l.id}>
+                  <td><span className="mono text-xs text-gold">{l.id}</span></td>
+                  <td className="fw6">{l.type}</td>
+                  <td>{l.businessName}</td>
+                  {user.role!=='Citizen'&&<td><div className="flex items-c gap2"><Av name={l.applicant} size={24}/><span className="text-sm">{l.applicant}</span></div></td>}
+                  <td><Badge status={l.status}/></td>
+                  <td className="mono text-xs text-muted">{l.date}</td>
+                  <td><span className="tag">📄 {l.docs?.length||0}</span></td>
+                  <td><button className="btn btn-ghost btn-sm" onClick={()=>setDetail(l)}>View →</button></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          {pages>1&&(<div className="pag"><div className="pag-info">Showing {(pg-1)*PER+1}–{Math.min(pg*PER,filtered.length)} of {filtered.length}</div><div className="pag-btns"><button className="pb" disabled={pg===1} onClick={()=>setPg(p=>p-1)}>‹</button>{Array.from({length:pages},(_,i)=><button key={i} className={`pb${pg===i+1?' on':''}`} onClick={()=>setPg(i+1)}>{i+1}</button>)}<button className="pb" disabled={pg===pages} onClick={()=>setPg(p=>p+1)}>›</button></div></div>)}
+        </div>
+      )}
+      {showForm&&<LicenseWizard user={user} onClose={()=>setShowForm(false)} onSave={handleSave}/>}
+      {detail&&<LicenseDetail license={detail} user={user} onClose={()=>setDetail(null)} onUpdate={handleUpdate}/>}
+    </div>
+  );
+}
+
+const LIC_STEPS = ['License Type','Business Info','Documents','Review & Submit'];
+
+function LicenseWizard({ user, onClose, onSave }) {
+  const [step, setStep] = useState(0);
+  const [f, setF] = useState({type:'Business License',businessName:'',businessType:'Retail',address:'',description:'',contactEmail:'',contactPhone:'',docs:[]});
+  const [files, setFiles] = useState([]);
+  const [saving, setSaving] = useState(false);
+
+  const handle=async()=>{
+    setSaving(true);
+    await onSave({...f,docs:files.map(f=>f.name)});
+    setSaving(false);
+  };
+
+  const stepContent=()=>{
+    if(step===0) return (
+      <div>
+        <div className="mb4">
+          <div className="text-xs text-muted fw6 mb2" style={{letterSpacing:'.8px',textTransform:'uppercase'}}>Select License Type</div>
+          <div className="grid2">
+            {['Business License','Food Handler Permit','Building Permit','Trade License','Liquor License','Import/Export License'].map(t=>(
+              <div key={t} onClick={()=>setF({...f,type:t})} style={{padding:'12px 14px',border:`1.5px solid ${f.type===t?'var(--gold)':'var(--border)'}`,borderRadius:10,cursor:'pointer',background:f.type===t?'rgba(231,196,110,.07)':'var(--surface)',transition:'var(--fd)',fontSize:13,fontWeight:600}}>
+                {t==='Business License'?'🏪':t==='Food Handler Permit'?'🍽':t==='Building Permit'?'🏗':t==='Trade License'?'📦':t==='Liquor License'?'🍺':'🌐'} {t}
+              </div>
+            ))}
+          </div>
+        </div>
+        <div className="fg"><label>Business Name *</label><input placeholder="Registered business name" value={f.businessName} onChange={e=>setF({...f,businessName:e.target.value})}/></div>
+        <div className="fg"><label>Business Type</label><select value={f.businessType} onChange={e=>setF({...f,businessType:e.target.value})}>{['Retail','Services','Manufacturing','Food & Beverage','Wholesale/Trade','Hospitality','Construction','Other'].map(t=><option key={t}>{t}</option>)}</select></div>
+      </div>
+    );
+    if(step===1) return (
+      <div>
+        <div className="fg"><label>Business Address *</label><input placeholder="Plot number and street" value={f.address} onChange={e=>setF({...f,address:e.target.value})}/></div>
+        <div className="fg"><label>Business Description</label><textarea placeholder="Describe your business activities and the purpose of this license application…" value={f.description} style={{minHeight:100}} onChange={e=>setF({...f,description:e.target.value})}/></div>
+        <div className="frow">
+          <div className="fg"><label>Contact Email</label><input type="email" placeholder="business@email.bw" value={f.contactEmail} onChange={e=>setF({...f,contactEmail:e.target.value})}/></div>
+          <div className="fg"><label>Contact Phone</label><input type="tel" placeholder="+267 7X XXX XXX" value={f.contactPhone} onChange={e=>setF({...f,contactPhone:e.target.value})}/></div>
+        </div>
+      </div>
+    );
+    if(step===2) return (
+      <div>
+        <div className="warn-box mb4">⚠ Ensure all documents are clear, legible scans. Incomplete documentation will delay processing.</div>
+        <div className="fg">
+          <label>Upload Documents</label>
+          <div className="upzone" onClick={()=>document.getElementById('lic-file').click()}>
+            <input id="lic-file" type="file" multiple accept=".pdf,.jpg,.png" style={{display:'none'}} onChange={e=>setFiles(fs=>[...fs,...Array.from(e.target.files)])}/>
+            <div className="upzone-ico">📋</div>
+            <div className="upzone-txt">Upload required documents</div>
+            <div className="upzone-hint">National ID · Business Plan · Certificates · Health/Police Clearance</div>
+          </div>
+          {files.length>0&&<div className="mt3">{files.map(f=><span key={f.name} className="file-chip">📄 {f.name}</span>)}</div>}
+        </div>
+        {files.length===0&&<div className="ok-box" style={{marginTop:8}}>ℹ You can still submit and upload documents later</div>}
+      </div>
+    );
+    if(step===3) return (
+      <div>
+        <div className="card card-sm card-flat mb4" style={{background:'var(--surface2)'}}>
+          <div className="text-xs text-muted fw6 mb3" style={{letterSpacing:'.8px',textTransform:'uppercase'}}>Application Summary</div>
+          {[['License Type',f.type],['Business Name',f.businessName||'—'],['Business Type',f.businessType],['Address',f.address||'—'],['Contact Email',f.contactEmail||'—'],['Contact Phone',f.contactPhone||'—'],['Documents Uploaded',`${files.length} file(s)`]].map(([k,v])=>(
+            <div key={k} className="kv"><span className="kv-key">{k}</span><span className="kv-val">{v}</span></div>
+          ))}
+        </div>
+        <div className="info-box">ℹ Your application will be reviewed within 5–7 business days. Status updates will be reflected in your dashboard.</div>
+      </div>
+    );
+  };
+
+  const canNext=step===0?f.businessName.trim():step===1?f.address.trim():true;
+
+  return (
+    <div className="overlay" onClick={onClose}>
+      <div className="modal" onClick={e=>e.stopPropagation()}>
+        <div className="mhead">
+          <div className="mtitle">License Application</div>
+          <button className="close-x" onClick={onClose}>✕</button>
+        </div>
+        <div className="mbody">
+          <div className="steps">
+            {LIC_STEPS.map((s,i)=>(
+              <div key={i} className={`step-item${i===step?' cur':i<step?' done':''}`}>
+                <div className="step-ring">{i<step?'✓':i+1}</div>
+                <div className="step-lbl">{s}</div>
+              </div>
+            ))}
+          </div>
+          {stepContent()}
+        </div>
+        <div className="mfoot">
+          {step>0&&<button className="btn btn-ghost" onClick={()=>setStep(s=>s-1)}>← Back</button>}
+          <button className="btn btn-ghost" onClick={onClose}>Cancel</button>
+          {step<LIC_STEPS.length-1
+            ?<button className="btn btn-gold" onClick={()=>setStep(s=>s+1)} disabled={!canNext}>Continue →</button>
+            :<button className="btn btn-gold" onClick={handle} disabled={saving}>{saving?<><Spinner/>Submitting…</>:'Submit Application'}</button>}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function LicenseDetail({ license, user, onClose, onUpdate }) {
+  const [note, setNote] = useState('');
+  const [saving, setSaving] = useState(false);
+  const canReview = (user.role==='Admin'||user.role==='Officer')&&license.status!=='Approved'&&license.status!=='Rejected';
+  const act=async(status)=>{ setSaving(true); await onUpdate(license.id,{status,reviewedBy:user.name},note); setSaving(false); };
+
+  const statusFlow=['Submitted','Under Review','Approved'];
+  const flowIdx=statusFlow.indexOf(license.status);
+
+  return (
+    <div className="overlay" onClick={onClose}>
+      <div className="modal modal-lg" onClick={e=>e.stopPropagation()}>
+        <div className="mhead">
+          <div>
+            <div className="mtitle">{license.type}</div>
+            <span className="mono text-xs text-gold">{license.id}</span>
+          </div>
+          <button className="close-x" onClick={onClose}>✕</button>
+        </div>
+        <div className="mbody">
+          {/* Progress flow */}
+          <div className="steps mb4">
+            {statusFlow.map((s,i)=>(
+              <div key={i} className={`step-item${i===flowIdx?' cur':i<flowIdx?' done':license.status==='Rejected'&&i>0?'':''}`}>
+                <div className="step-ring" style={license.status==='Rejected'&&i===flowIdx?{borderColor:'var(--err)',background:'var(--err)',color:'#fff'}:{}}>{license.status==='Rejected'&&i===1?'✕':i<flowIdx?'✓':i+1}</div>
+                <div className="step-lbl">{s}</div>
+              </div>
+            ))}
+          </div>
+
+          <div className="flex gap2 mb4" style={{flexWrap:'wrap'}}>
+            <Badge status={license.status}/>
+            <span className="tag">{license.businessType}</span>
+            <span className="tag">📅 {license.date}</span>
+            {license.reviewedBy&&<span className="tag">Reviewed by {license.reviewedBy}</span>}
+          </div>
+
+          <div className="detail-grid mb4">
+            <div className="card card-sm card-flat" style={{background:'var(--surface2)'}}>
+              <div className="text-xs text-muted fw6 mb2" style={{letterSpacing:'.8px',textTransform:'uppercase'}}>Applicant</div>
+              <div className="flex items-c gap2 mb1"><Av name={license.applicant} size={30}/><span className="fw6">{license.applicant}</span></div>
+              <div className="text-sm text-muted">{license.businessName}</div>
+            </div>
+            <div className="card card-sm card-flat" style={{background:'var(--surface2)'}}>
+              <div className="text-xs text-muted fw6 mb2" style={{letterSpacing:'.8px',textTransform:'uppercase'}}>Documents ({license.docs?.length||0})</div>
+              {license.docs?.map(d=><div key={d}><span className="file-chip" style={{cursor:'default'}}>📄 {d}</span></div>)}
+              {!license.docs?.length&&<div className="text-sm text-muted">No documents uploaded</div>}
+            </div>
+          </div>
+
+          {license.notes&&(
+            <div className="card card-sm mb4" style={{background:'var(--warn-bg)',borderColor:'var(--warn)'}}>
+              <div className="text-xs fw6 mb1" style={{color:'var(--warn)',letterSpacing:'.8px',textTransform:'uppercase'}}>Review Notes</div>
+              <div style={{fontSize:13,color:'var(--warn)'}}>{license.notes}</div>
+            </div>
+          )}
+
+          {/* Review panel */}
+          {canReview&&(
+            <div className="card card-sm mb4">
+              <div className="text-xs text-muted fw6 mb3" style={{letterSpacing:'.8px',textTransform:'uppercase'}}>Review Decision</div>
+              <div className="fg" style={{marginBottom:12}}>
+                <label>Review Note / Remarks</label>
+                <textarea placeholder="Provide a note for the applicant about your decision, required corrections, or next steps…" value={note} style={{minHeight:80}} onChange={e=>setNote(e.target.value)}/>
+              </div>
+              <div className="flex gap2 flex-wrap">
+                {license.status==='Submitted'&&<button className="btn btn-teal btn-sm" onClick={()=>act('Under Review')} disabled={saving}>📋 Mark Under Review</button>}
+                <button className="btn btn-ok btn-sm" onClick={()=>act('Approved')} disabled={saving}>{saving?<Spinner/>:'✓ Approve Application'}</button>
+                <button className="btn btn-err btn-sm" onClick={()=>act('Rejected')} disabled={saving}>✕ Reject Application</button>
+              </div>
+            </div>
+          )}
+
+          {/* History */}
+          <div>
+            <div className="text-xs text-muted fw6 mb3" style={{letterSpacing:'.8px',textTransform:'uppercase'}}>Application History</div>
+            <div className="tl">
+              {[...license.history].reverse().map((h,i)=>(
+                <div key={i} className="tl-item">
+                  <div className="tl-dot">{i===0?'★':'◈'}</div>
+                  <div className="tl-body">
+                    <div className="tl-title">{h.action}</div>
+                    <div className="tl-meta">{h.date}{h.by?` · ${h.by}`:''}</div>
+                    {h.note&&<div className="tl-note">{h.note}</div>}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════
+   ANALYTICS
+═══════════════════════════════════════════════ */
+function Analytics({ user }) {
+  const [stats, setStats] = useState(null);
+  useEffect(()=>{ api.getDashboardStats().then(setStats); },[]);
+  if(!stats) return <div className="loading-row"><Spinner dark/>Loading analytics…</div>;
+  const PIE_COLORS = ['#e7c46e','#2db8a8','#2060cc','#22975c','#c47820'];
+  const trend = stats.monthlyTrend.map(d=>({...d,rate:d.complaints?Math.round(d.resolved/d.complaints*100):0}));
+  return (
+    <div>
+      <div className="ph">
+        <div className="ph-left"><div className="ph-title">Analytics</div><div className="ph-sub">Performance trends and system insights</div></div>
+        <div className="ph-right"><span className="chip">📊 Last 6 Months</span></div>
+      </div>
+      <div className="stats-row">
+        {[
+          {label:'Resolution Rate',val:`${stats.resolutionRate}%`,foot:'Complaints resolved',icon:'📈',color:'#22975c'},
+          {label:'Avg. Resolution Time',val:'3.2d',foot:'Days to resolution',icon:'⏱',color:'#2060cc'},
+          {label:'Active Officers',val:stats.activeOfficers,foot:'Currently handling cases',icon:'🛡',color:'#e7c46e'},
+          {label:'Open Cases',val:stats.openCases,foot:`${stats.pending} pending, ${stats.inProgress} active`,icon:'📋',color:'#c47820'},
+        ].map((s,i)=><div key={i} className="stat"><div className="stat-glow" style={{background:s.color}}></div><div className="stat-label">{s.label}</div><div className="stat-val">{s.val}</div><div className="stat-footer"><span style={{fontSize:18}}>{s.icon}</span>{s.foot}</div></div>)}
+      </div>
+      <div className="charts-grid">
+        <div className="card">
+          <div className="chart-title">Resolution Rate Trend</div>
+          <div className="chart-sub mb3">Month-over-month resolution efficiency</div>
+          <Recharts.ResponsiveContainer width="100%" height={220}>
+            <Recharts.LineChart data={trend} margin={{top:5,right:10,left:-20,bottom:0}}>
+              <Recharts.CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false}/>
+              <Recharts.XAxis dataKey="month" tick={{fontSize:11,fill:'var(--text2)'}} axisLine={false} tickLine={false}/>
+              <Recharts.YAxis tick={{fontSize:11,fill:'var(--text2)'}} axisLine={false} tickLine={false} unit="%"/>
+              <Recharts.Tooltip contentStyle={{background:'var(--surface)',border:'1px solid var(--border)',borderRadius:8,fontSize:12}}/>
+              <Recharts.Line type="monotone" dataKey="rate" name="Resolution %" stroke="#e7c46e" strokeWidth={2.5} dot={{fill:'#e7c46e',r:4,strokeWidth:0}} activeDot={{r:7,strokeWidth:0}}/>
+            </Recharts.LineChart>
+          </Recharts.ResponsiveContainer>
+        </div>
+        <div className="card">
+          <div className="chart-title">Category Distribution</div>
+          <div className="chart-sub mb3">Complaints by service area</div>
+          <Recharts.ResponsiveContainer width="100%" height={220}>
+            <Recharts.PieChart>
+              <Recharts.Pie data={stats.byCat} cx="50%" cy="50%" outerRadius={90} paddingAngle={3} dataKey="value" label={({name,percent})=>`${(percent*100).toFixed(0)}%`} labelLine>
+                {stats.byCat.map((_,i)=><Recharts.Cell key={i} fill={PIE_COLORS[i%PIE_COLORS.length]}/>)}
+              </Recharts.Pie>
+              <Recharts.Tooltip contentStyle={{background:'var(--surface)',border:'1px solid var(--border)',borderRadius:8,fontSize:12}}/>
+              <Recharts.Legend iconType="circle" iconSize={8} wrapperStyle={{fontSize:12}}/>
+            </Recharts.PieChart>
+          </Recharts.ResponsiveContainer>
+        </div>
+      </div>
+      <div className="card" style={{marginBottom:16}}>
+        <div className="chart-title">Volume & Resolution — 6 Month Area Chart</div>
+        <div className="chart-sub mb3">Complaint intake vs resolution over time</div>
+        <Recharts.ResponsiveContainer width="100%" height={240}>
+          <Recharts.AreaChart data={trend} margin={{top:5,right:10,left:-20,bottom:0}}>
+            <defs>
+              <linearGradient id="gC" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#e7c46e" stopOpacity={.25}/><stop offset="95%" stopColor="#e7c46e" stopOpacity={0}/></linearGradient>
+              <linearGradient id="gR" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#22975c" stopOpacity={.25}/><stop offset="95%" stopColor="#22975c" stopOpacity={0}/></linearGradient>
+            </defs>
+            <Recharts.CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false}/>
+            <Recharts.XAxis dataKey="month" tick={{fontSize:11,fill:'var(--text2)'}} axisLine={false} tickLine={false}/>
+            <Recharts.YAxis tick={{fontSize:11,fill:'var(--text2)'}} axisLine={false} tickLine={false}/>
+            <Recharts.Tooltip contentStyle={{background:'var(--surface)',border:'1px solid var(--border)',borderRadius:8,fontSize:12}}/>
+            <Recharts.Legend iconType="circle" iconSize={8} wrapperStyle={{fontSize:12}}/>
+            <Recharts.Area type="monotone" dataKey="complaints" name="Received" stroke="#e7c46e" strokeWidth={2} fill="url(#gC)"/>
+            <Recharts.Area type="monotone" dataKey="resolved" name="Resolved" stroke="#22975c" strokeWidth={2} fill="url(#gR)"/>
+          </Recharts.AreaChart>
+        </Recharts.ResponsiveContainer>
+      </div>
+      <div className="charts-grid">
+        <div className="card">
+          <div className="chart-title">Ward Heatmap</div>
+          <div className="chart-sub mb3">Complaint density by ward</div>
+          {stats.byWard.map((w,i)=>(
+            <div key={i} className="flex items-c gap3 mb3">
+              <span style={{minWidth:52,fontSize:11,fontFamily:'Fira Code,monospace',color:'var(--text2)'}}>{w.ward}</span>
+              <div style={{flex:1}}><ProgBar pct={Math.round(w.count/_complaints.length*100)} color={PIE_COLORS[i%PIE_COLORS.length]}/></div>
+              <span className="text-sm fw7" style={{minWidth:20,textAlign:'right'}}>{w.count}</span>
+            </div>
+          ))}
+        </div>
+        <div className="card">
+          <div className="chart-title">License Pipeline Stats</div>
+          <div className="chart-sub mb3">Application processing overview</div>
+          <Recharts.ResponsiveContainer width="100%" height={200}>
+            <Recharts.RadarChart data={[
+              {subject:'Submitted',A:stats.licSubmitted},{subject:'Review',A:stats.licReview},
+              {subject:'Approved',A:stats.licApproved},{subject:'Rejected',A:stats.licRejected},
+            ]}>
+              <Recharts.PolarGrid stroke="var(--border)"/>
+              <Recharts.PolarAngleAxis dataKey="subject" tick={{fontSize:11,fill:'var(--text2)'}}/>
+              <Recharts.Radar name="Licenses" dataKey="A" stroke="#e7c46e" fill="#e7c46e" fillOpacity={0.15}/>
+              <Recharts.Tooltip contentStyle={{background:'var(--surface)',border:'1px solid var(--border)',borderRadius:8,fontSize:12}}/>
+            </Recharts.RadarChart>
+          </Recharts.ResponsiveContainer>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════
+   ACTIVITY FEED
+═══════════════════════════════════════════════ */
+function ActivityFeed({ user }) {
+  const feed = useMemo(()=>{
+    const events = [];
+    _complaints.forEach(c=>c.history.forEach(h=>events.push({...h,cid:c.id,title:c.title,type:'complaint'})));
+    _licenses.forEach(l=>l.history.forEach(h=>events.push({...h,cid:l.id,title:l.type,type:'license'})));
+    return events.sort((a,b)=>b.date.localeCompare(a.date)).slice(0,30);
+  },[]);
+  return (
+    <div>
+      <div className="ph"><div className="ph-title">Activity Feed</div><div className="ph-sub">Real-time system events</div></div>
+      <div className="card">
+        {feed.map((e,i)=>(
+          <div key={i} className="activity-item">
+            <div className="act-ico" style={{background:e.type==='complaint'?'var(--warn-bg)':'var(--info-bg)'}}>{e.type==='complaint'?'⊟':'◈'}</div>
+            <div className="act-body">
+              <div className="act-txt"><span className="fw6">{e.action}</span> on <span className="text-gold fw6">{e.cid}</span> — {e.title}</div>
+              <div className="flex items-c gap2 mt1">
+                <span className="mono text-xs text-muted">{e.date}</span>
+                {e.by&&<><span className="text-xs text-muted">·</span><Av name={e.by} size={16}/><span className="text-xs text-muted">{e.by}</span></>}
+              </div>
+              {e.note&&<div style={{fontSize:12,color:'var(--text2)',marginTop:4,paddingLeft:4,borderLeft:'2px solid var(--gold)'}}>{e.note}</div>}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════
+   USERS
+═══════════════════════════════════════════════ */
+function Users({ user }) {
+  const [search, setSearch] = useState('');
+  const [roleF, setRoleF] = useState('All');
+  const [showAdd, setShowAdd] = useState(false);
+  const [userDetail, setUserDetail] = useState(null);
+  const { toast } = useCtx();
+
+  const filtered = useMemo(()=>{
+    return MOCK_USERS.filter(u=>{
+      const q=search.toLowerCase();
+      const mQ=!q||u.name.toLowerCase().includes(q)||u.email.toLowerCase().includes(q)||u.ward.toLowerCase().includes(q);
+      const mR=roleF==='All'||u.role===roleF;
+      return mQ&&mR;
+    });
+  },[search,roleF]);
+
+  return (
+    <div>
+      <div className="ph">
+        <div className="ph-left"><div className="ph-title">User Management</div><div className="ph-sub">{filtered.length} user{filtered.length!==1?'s':''}</div></div>
+        <div className="ph-right"><button className="btn btn-gold" onClick={()=>toast({msg:'Add user feature coming soon',type:'ok'})}>+ Add User</button></div>
+      </div>
+      <div className="filter-bar">
+        <div className="search-wrap"><span className="search-ico">⌕</span><input placeholder="Search users…" value={search} onChange={e=>setSearch(e.target.value)}/></div>
+        <select className="fsel" value={roleF} onChange={e=>setRoleF(e.target.value)}>
+          {['All','Citizen','Officer','Admin'].map(r=><option key={r}>{r}</option>)}
+        </select>
+      </div>
+      <div className="tbl-wrap">
+        <table>
+          <thead><tr><th>User</th><th>Email</th><th>Role</th><th>Status</th><th>Ward</th><th>Joined</th><th>Complaints</th><th>Actions</th></tr></thead>
+          <tbody>
+            {filtered.map(u=>(
+              <tr key={u.id}>
+                <td><div className="flex items-c gap2"><Av name={u.name} size={30}/><span className="fw6">{u.name}</span></div></td>
+                <td className="text-sm text-muted">{u.email}</td>
+                <td><RBadge role={u.role}/></td>
+                <td><span className={`badge ${u.status==='Active'?'b-approved':'b-rejected'}`}><span className="badge-dot"></span>{u.status}</span></td>
+                <td className="text-sm text-muted">{u.ward}</td>
+                <td className="mono text-xs text-muted">{u.joined}</td>
+                <td className="fw6">{u.complaints}</td>
+                <td>
+                  <div className="flex gap1">
+                    <button className="btn btn-ghost btn-xs" onClick={()=>setUserDetail(u)}>View</button>
+                    <button className="btn btn-ghost btn-xs" onClick={()=>toast({msg:`${u.status==='Active'?'Disabled':'Enabled'} ${u.name}`,type:'ok'})} style={{color:u.status==='Active'?'var(--err)':'var(--ok)'}}>{u.status==='Active'?'Disable':'Enable'}</button>
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      {userDetail&&(
+        <div className="overlay" onClick={()=>setUserDetail(null)}>
+          <div className="modal" style={{maxWidth:460}} onClick={e=>e.stopPropagation()}>
+            <div className="mhead"><div className="mtitle">User Profile</div><button className="close-x" onClick={()=>setUserDetail(null)}>✕</button></div>
+            <div className="mbody">
+              <div className="flex items-c gap3 mb4"><Av name={userDetail.name} size={52}/><div><div className="fw7" style={{fontSize:17}}>{userDetail.name}</div><RBadge role={userDetail.role}/></div></div>
+              {[['Email',userDetail.email],['Phone',userDetail.phone],['Ward',userDetail.ward],['Status',userDetail.status],['Member Since',userDetail.joined],['Complaints Filed',userDetail.complaints],['User ID',userDetail.id]].map(([k,v])=>(
+                <div key={k} className="kv"><span className="kv-key">{k}</span><span className="kv-val mono text-sm">{v}</span></div>
+              ))}
+            </div>
+            <div className="mfoot">
+              <button className="btn btn-ghost" onClick={()=>setUserDetail(null)}>Close</button>
+              <button className="btn btn-gold btn-sm" onClick={()=>toast({msg:'Edit user feature coming soon',type:'ok'})}>Edit Profile</button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════
+   SETTINGS
+═══════════════════════════════════════════════ */
+function Settings({ user, dark, setDark }) {
+  const { toast } = useCtx();
+  const [name, setName] = useState(user.name);
+  const [email, setEmail] = useState(user.email);
+  const [notifEmail, setNotifEmail] = useState(true);
+  const [notifPush, setNotifPush] = useState(false);
+  const save=()=>toast({msg:'Settings saved successfully',type:'ok'});
+  const Toggle=({on,set})=>(
+    <div onClick={()=>set(!on)} style={{width:44,height:24,borderRadius:99,background:on?'var(--gold-dark)':'var(--border)',cursor:'pointer',position:'relative',transition:'var(--fd)',flexShrink:0}}>
+      <div style={{width:18,height:18,borderRadius:50,background:'#fff',position:'absolute',top:3,left:on?23:3,transition:'var(--fd)',boxShadow:'0 1px 4px rgba(0,0,0,.3)'}}></div>
+    </div>
+  );
+  return (
+    <div>
+      <div className="ph"><div className="ph-title">Settings</div><div className="ph-sub">Manage your profile and preferences</div></div>
+      <div className="grid2" style={{alignItems:'start'}}>
+        <div>
+          <div className="card mb4">
+            <div className="chart-title" style={{marginBottom:16}}>Profile Information</div>
+            <div className="flex items-c gap3 mb4">
+              <Av name={user.name} size={56}/>
+              <div><div className="fw7" style={{fontSize:16}}>{user.name}</div><RBadge role={user.role}/><div className="text-sm text-muted mt1">{user.email}</div></div>
+            </div>
+            <div className="fg"><label>Display Name</label><input value={name} onChange={e=>setName(e.target.value)}/></div>
+            <div className="fg"><label>Email Address</label><input type="email" value={email} onChange={e=>setEmail(e.target.value)}/></div>
+            <div className="fg" style={{marginBottom:0}}><label>Phone Number</label><input placeholder="+267 7X XXX XXX"/></div>
+          </div>
+          <div className="card">
+            <div className="chart-title" style={{marginBottom:16}}>Change Password</div>
+            <div className="fg"><label>Current Password</label><input type="password" placeholder="••••••••"/></div>
+            <div className="fg"><label>New Password</label><input type="password" placeholder="••••••••"/></div>
+            <div className="fg" style={{marginBottom:0}}><label>Confirm New Password</label><input type="password" placeholder="••••••••"/></div>
+          </div>
+        </div>
+        <div>
+          <div className="card mb4">
+            <div className="chart-title" style={{marginBottom:16}}>Preferences</div>
+            {[
+              {label:'Dark Mode',sub:'Use dark theme across the app',on:dark,set:setDark},
+              {label:'Email Notifications',sub:'Receive updates via email',on:notifEmail,set:setNotifEmail},
+              {label:'Push Notifications',sub:'In-app real-time alerts',on:notifPush,set:setNotifPush},
+            ].map((p,i)=>(
+              <div key={i} className="flex justify-b items-c" style={{padding:'12px 0',borderBottom:i<2?'1px solid var(--border)':'none'}}>
+                <div><div className="fw6 text-sm">{p.label}</div><div className="text-xs text-muted">{p.sub}</div></div>
+                <Toggle on={p.on} set={p.set}/>
+              </div>
+            ))}
+          </div>
+          <div className="card mb4">
+            <div className="chart-title" style={{marginBottom:12}}>Account Info</div>
+            {[['User ID',user.citizenId],['Role',user.role],['Account Status','Active']].map(([k,v])=>(
+              <div key={k} className="kv"><span className="kv-key">{k}</span><span className="kv-val mono text-sm">{v}</span></div>
+            ))}
+          </div>
+          <button className="btn btn-gold" style={{width:'100%',justifyContent:'center'}} onClick={save}>Save Changes</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════
+   ROOT APP
+═══════════════════════════════════════════════ */
+function App() {
+  const [user, setUser] = useState(null);
+  const [page, setPage] = useState('dashboard');
+  const [slim, setSlim] = useState(false);
+  const [mobOpen, setMobOpen] = useState(false);
+  const [dark, setDark] = useState(false);
+  const [toasts, setToasts] = useState([]);
+
+  useEffect(()=>{ document.documentElement.setAttribute('data-theme',dark?'dark':''); },[dark]);
+
+  const toast=useCallback(({msg,type='ok'})=>{
+    const id=Date.now();
+    setToasts(ts=>[...ts,{id,msg,type}]);
+    setTimeout(()=>setToasts(ts=>ts.filter(t=>t.id!==id)),3000);
+  },[]);
+
+  const handleLogin=u=>{ setUser(u); setPage('dashboard'); };
+  const handleLogout=()=>{ setUser(null); setPage('dashboard'); };
+  const toggleSide=()=>{ if(window.innerWidth<=780) setMobOpen(m=>!m); else setSlim(s=>!s); };
+
+  if(!user) return <Login onLogin={handleLogin}/>;
+
+  const renderPage=()=>{
+    switch(page){
+      case 'dashboard': return <Dashboard user={user}/>;
+      case 'complaints': return <Complaints user={user}/>;
+      case 'licensing': return <Licensing user={user}/>;
+      case 'analytics': return ['Officer','Admin'].includes(user.role)?<Analytics user={user}/>:<Dashboard user={user}/>;
+      case 'activity': return ['Officer','Admin'].includes(user.role)?<ActivityFeed user={user}/>:<Dashboard user={user}/>;
+      case 'users': return user.role==='Admin'?<Users user={user}/>:<Dashboard user={user}/>;
+      case 'settings': return <Settings user={user} dark={dark} setDark={setDark}/>;
+      default: return <Dashboard user={user}/>;
+    }
+  };
+
+  return (
+    <Ctx.Provider value={{ user, dark, toast }}>
+      <div className="shell">
+        <div className={`mobile-veil${mobOpen?' vis':''}`} onClick={()=>setMobOpen(false)}></div>
+        <Sidebar user={user} page={page} setPage={p=>{setPage(p);setMobOpen(false);}} slim={slim} mobOpen={mobOpen}/>
+        <div className="main">
+          <Topbar user={user} page={page} onToggle={toggleSide} onLogout={handleLogout} dark={dark} setDark={setDark}/>
+          <div className="content">{renderPage()}</div>
+        </div>
+        <Toast toasts={toasts}/>
+      </div>
+    </Ctx.Provider>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+</script>
+</body>
+</html>
